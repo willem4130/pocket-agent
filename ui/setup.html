@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to Pocket Agent</title>
+  <style>
+    :root {
+      --bg-primary: #0a0a0b;
+      --bg-secondary: #141415;
+      --bg-tertiary: #1c1c1e;
+      --border: #2a2a2d;
+      --text-primary: #fafafa;
+      --text-secondary: #a1a1a6;
+      --text-muted: #636366;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --error: #ef4444;
+      --success: #22c55e;
+      --orange: #f97316;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .onboarding {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, var(--accent), #818cf8);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      animation: logoIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes logoIn {
+      from { opacity: 0; transform: scale(0.8) translateY(10px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .logo svg {
+      width: 40px;
+      height: 40px;
+      color: white;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+      text-align: center;
+      animation: textIn 0.5s ease 0.1s both;
+    }
+
+    .subtitle {
+      font-size: 15px;
+      color: var(--text-secondary);
+      text-align: center;
+      margin-bottom: 40px;
+      animation: textIn 0.5s ease 0.15s both;
+    }
+
+    @keyframes textIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Steps */
+    .step {
+      display: none;
+      width: 100%;
+      max-width: 420px;
+      animation: stepIn 0.3s ease;
+    }
+
+    .step.active {
+      display: block;
+    }
+
+    @keyframes stepIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Auth Options */
+    .auth-options {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .auth-option {
+      background: var(--bg-secondary);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .auth-option:hover {
+      border-color: var(--accent);
+      background: var(--bg-tertiary);
+    }
+
+    .auth-option.selected {
+      border-color: var(--accent);
+      background: rgba(99, 102, 241, 0.1);
+    }
+
+    .auth-option-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .auth-option-icon.api {
+      background: linear-gradient(135deg, #10b981, #059669);
+    }
+
+    .auth-option-icon.oauth {
+      background: linear-gradient(135deg, var(--orange), #ea580c);
+    }
+
+    .auth-option-icon svg {
+      width: 24px;
+      height: 24px;
+      color: white;
+    }
+
+    .auth-option-text h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .auth-option-text p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .auth-option-badge {
+      margin-left: auto;
+      padding: 4px 8px;
+      background: rgba(99, 102, 241, 0.2);
+      color: var(--accent);
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    /* Form */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: var(--text-secondary);
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 14px 16px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .form-group input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .form-group input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .form-group input[type="password"] {
+      font-family: monospace;
+      letter-spacing: 1px;
+    }
+
+    .form-group .hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    .form-group .hint a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .form-group .hint a:hover {
+      text-decoration: underline;
+    }
+
+    /* Status */
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 16px;
+    }
+
+    .status.success {
+      background: rgba(34, 197, 94, 0.1);
+      color: var(--success);
+    }
+
+    .status.error {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--error);
+    }
+
+    .status.info {
+      background: rgba(99, 102, 241, 0.1);
+      color: var(--accent);
+    }
+
+    .status svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    /* Buttons */
+    .button-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    button {
+      flex: 1;
+      padding: 14px 24px;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    button.primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+
+    button.secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    button.secondary:hover {
+      background: var(--border);
+      color: var(--text-primary);
+    }
+
+    button.oauth {
+      background: var(--orange);
+      color: white;
+    }
+
+    button.oauth:hover:not(:disabled) {
+      background: #ea580c;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    button svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Divider */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 24px 0;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Success */
+    .success-icon {
+      width: 72px;
+      height: 72px;
+      background: rgba(34, 197, 94, 0.1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      animation: successPop 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes successPop {
+      from { opacity: 0; transform: scale(0.5); }
+      50% { transform: scale(1.1); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .success-icon svg {
+      width: 36px;
+      height: 36px;
+      color: var(--success);
+    }
+
+    .success-text {
+      text-align: center;
+    }
+
+    .success-text h2 {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .success-text p {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    /* Optional section */
+    .optional-section {
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .optional-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      cursor: pointer;
+    }
+
+    .optional-header h4 {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .optional-header svg {
+      width: 16px;
+      height: 16px;
+      color: var(--text-muted);
+      transition: transform 0.2s;
+    }
+
+    .optional-header.expanded svg {
+      transform: rotate(180deg);
+    }
+
+    .optional-content {
+      display: none;
+    }
+
+    .optional-content.show {
+      display: block;
+      animation: slideDown 0.2s ease;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Skip link */
+    .skip-link {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .skip-link a {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .skip-link a:hover {
+      color: var(--text-secondary);
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="onboarding">
+    <div class="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+    </div>
+
+    <h1>Pocket Agent</h1>
+    <p class="subtitle">Your AI assistant with persistent memory</p>
+
+    <!-- Step 1: Choose Auth Method -->
+    <div class="step active" id="step-auth">
+      <div class="auth-options">
+        <div class="auth-option" onclick="selectAuth('oauth')">
+          <div class="auth-option-icon oauth">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          </div>
+          <div class="auth-option-text">
+            <h3>Sign in with Claude</h3>
+            <p>Use your Claude Pro or Max subscription</p>
+          </div>
+          <span class="auth-option-badge">Recommended</span>
+        </div>
+
+        <div class="auth-option" onclick="selectAuth('api')">
+          <div class="auth-option-icon api">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          </div>
+          <div class="auth-option-text">
+            <h3>Use API Key</h3>
+            <p>Enter your Anthropic API key</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2a: OAuth Flow - Start -->
+    <div class="step" id="step-oauth">
+      <div id="oauth-status"></div>
+
+      <div class="status info">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>Click below to open Claude sign-in. After signing in, copy the code and paste it here.</span>
+      </div>
+
+      <div class="button-row">
+        <button class="secondary" onclick="showStep('step-auth')">Back</button>
+        <button class="oauth" id="oauth-btn" onclick="startOAuth()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Open Claude Sign In
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2a-2: OAuth Code Entry -->
+    <div class="step" id="step-oauth-code">
+      <div id="oauth-code-status"></div>
+
+      <div class="status info">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>Paste the authorization code from your browser</span>
+      </div>
+
+      <div class="form-group">
+        <label>Authorization Code</label>
+        <input type="text" id="oauth-code" placeholder="Paste the code here..." autofocus>
+        <p class="hint">After signing in, you'll see a code. Copy and paste it above.</p>
+      </div>
+
+      <div class="button-row">
+        <button class="secondary" onclick="cancelOAuth()">Cancel</button>
+        <button class="primary" id="oauth-complete-btn" onclick="completeOAuth()">
+          Continue
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+
+      <div class="optional-section">
+        <div class="optional-header" onclick="toggleOptional()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          <h4>Optional: Add OpenAI for semantic search</h4>
+        </div>
+        <div class="optional-content" id="optional-openai-oauth">
+          <div class="form-group">
+            <label>OpenAI API Key</label>
+            <input type="password" id="openai-key-oauth" placeholder="sk-...">
+            <p class="hint">Enables semantic memory search. Get from <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2b: API Key Entry -->
+    <div class="step" id="step-api">
+      <div id="api-status"></div>
+
+      <div class="form-group">
+        <label>Anthropic API Key</label>
+        <input type="password" id="anthropic-key" placeholder="sk-ant-..." autofocus>
+        <p class="hint">Get your API key from <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a></p>
+      </div>
+
+      <div class="button-row">
+        <button class="secondary" onclick="showStep('step-auth')">Back</button>
+        <button class="primary" id="api-btn" onclick="validateAndSave()">
+          Continue
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+
+      <div class="optional-section">
+        <div class="optional-header" onclick="toggleOptional()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          <h4>Optional: Add OpenAI for semantic search</h4>
+        </div>
+        <div class="optional-content" id="optional-openai-api">
+          <div class="form-group">
+            <label>OpenAI API Key</label>
+            <input type="password" id="openai-key-api" placeholder="sk-...">
+            <p class="hint">Enables semantic memory search. Get from <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Success -->
+    <div class="step" id="step-success">
+      <div class="success-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+
+      <div class="success-text">
+        <h2>You're all set!</h2>
+        <p>Double-click the tray icon to start chatting</p>
+      </div>
+
+      <div class="button-row" style="margin-top: 32px;">
+        <button class="primary" onclick="finishSetup()">
+          Start Chatting
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let selectedAuth = null;
+
+    function selectAuth(method) {
+      selectedAuth = method;
+
+      // Update selection UI
+      document.querySelectorAll('.auth-option').forEach(el => el.classList.remove('selected'));
+      event.currentTarget.classList.add('selected');
+
+      // Show appropriate step after short delay
+      setTimeout(() => {
+        if (method === 'oauth') {
+          showStep('step-oauth');
+        } else {
+          showStep('step-api');
+          document.getElementById('anthropic-key').focus();
+        }
+      }, 200);
+    }
+
+    function showStep(stepId) {
+      document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+      document.getElementById(stepId).classList.add('active');
+    }
+
+    function toggleOptional() {
+      const header = event.currentTarget;
+      const content = header.nextElementSibling;
+      header.classList.toggle('expanded');
+      content.classList.toggle('show');
+    }
+
+    async function startOAuth() {
+      const btn = document.getElementById('oauth-btn');
+      const statusDiv = document.getElementById('oauth-status');
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Opening browser...';
+
+      try {
+        // Start OAuth flow - opens browser
+        const result = await window.pocketAgent.startOAuth();
+
+        if (result.success) {
+          // Show the code entry step
+          showStep('step-oauth-code');
+          document.getElementById('oauth-code').focus();
+        } else {
+          statusDiv.innerHTML = `
+            <div class="status error">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              ${result.error || 'Failed to open browser. Please try again.'}
+            </div>
+          `;
+        }
+      } catch (err) {
+        statusDiv.innerHTML = `
+          <div class="status error">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            ${err.message || 'Connection failed'}
+          </div>
+        `;
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        Open Claude Sign In
+      `;
+    }
+
+    async function completeOAuth() {
+      const code = document.getElementById('oauth-code').value.trim();
+      const statusDiv = document.getElementById('oauth-code-status');
+      const btn = document.getElementById('oauth-complete-btn');
+
+      if (!code) {
+        statusDiv.innerHTML = `
+          <div class="status error">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            Please paste the authorization code from your browser
+          </div>
+        `;
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Verifying...';
+      statusDiv.innerHTML = '';
+
+      try {
+        // Exchange code for tokens
+        const result = await window.pocketAgent.completeOAuth(code);
+
+        if (result.success) {
+          // Save OpenAI key if provided
+          const openaiKey = document.getElementById('openai-key-oauth').value.trim();
+          if (openaiKey) {
+            await window.pocketAgent.setSetting('openai.apiKey', openaiKey);
+          }
+
+          showStep('step-success');
+        } else {
+          statusDiv.innerHTML = `
+            <div class="status error">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              ${result.error || 'Invalid code. Please try again.'}
+            </div>
+          `;
+        }
+      } catch (err) {
+        statusDiv.innerHTML = `
+          <div class="status error">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            ${err.message || 'Verification failed'}
+          </div>
+        `;
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = `Continue <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+    }
+
+    async function cancelOAuth() {
+      try {
+        await window.pocketAgent.cancelOAuth();
+      } catch (err) {
+        console.error('Failed to cancel OAuth:', err);
+      }
+      // Clear the code input
+      document.getElementById('oauth-code').value = '';
+      document.getElementById('oauth-code-status').innerHTML = '';
+      // Go back to auth selection
+      showStep('step-auth');
+    }
+
+    async function validateAndSave() {
+      const anthropicKey = document.getElementById('anthropic-key').value.trim();
+      const openaiKey = document.getElementById('openai-key-api').value.trim();
+      const statusDiv = document.getElementById('api-status');
+      const btn = document.getElementById('api-btn');
+
+      if (!anthropicKey) {
+        statusDiv.innerHTML = `
+          <div class="status error">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            Please enter your Anthropic API key
+          </div>
+        `;
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Validating...';
+      statusDiv.innerHTML = '';
+
+      try {
+        const result = await window.pocketAgent.validateAnthropicKey(anthropicKey);
+
+        if (!result.valid) {
+          statusDiv.innerHTML = `
+            <div class="status error">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              ${result.error || 'Invalid API key'}
+            </div>
+          `;
+          btn.disabled = false;
+          btn.innerHTML = 'Continue <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+          return;
+        }
+
+        // Save keys
+        await window.pocketAgent.setSetting('anthropic.apiKey', anthropicKey);
+        await window.pocketAgent.setSetting('auth.method', 'api_key');
+
+        if (openaiKey) {
+          await window.pocketAgent.setSetting('openai.apiKey', openaiKey);
+        }
+
+        showStep('step-success');
+
+      } catch (err) {
+        statusDiv.innerHTML = `
+          <div class="status error">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            ${err.message || 'Validation failed'}
+          </div>
+        `;
+        btn.disabled = false;
+        btn.innerHTML = 'Continue <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+      }
+    }
+
+    async function finishSetup() {
+      // Restart agent with new settings
+      try {
+        await window.pocketAgent.restartAgent();
+      } catch (err) {
+        console.error('Failed to restart agent:', err);
+      }
+      window.close();
+    }
+
+    // Handle Enter key
+    document.getElementById('anthropic-key').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') validateAndSave();
+    });
+
+    document.getElementById('oauth-code').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') completeOAuth();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,682 @@
+/**
+ * Settings Manager - SQLite-based configuration with encryption
+ *
+ * Uses Electron's safeStorage API to encrypt sensitive values like API keys.
+ * All settings stored in SQLite for persistence and atomic updates.
+ */
+
+import Database from 'better-sqlite3';
+import { safeStorage } from 'electron';
+
+export interface Setting {
+  key: string;
+  value: string;
+  encrypted: boolean;
+  category: string;
+  updated_at: string;
+}
+
+export interface SettingDefinition {
+  key: string;
+  defaultValue: string;
+  encrypted: boolean;
+  category: string;
+  label: string;
+  description?: string;
+  type: 'string' | 'number' | 'boolean' | 'password' | 'array';
+  validation?: (value: string) => boolean;
+}
+
+// Default settings schema
+export const SETTINGS_SCHEMA: SettingDefinition[] = [
+  // Auth settings
+  {
+    key: 'auth.method',
+    defaultValue: '',
+    encrypted: false,
+    category: 'auth',
+    label: 'Authentication Method',
+    description: 'How you authenticate with Claude (api_key or oauth)',
+    type: 'string',
+  },
+  {
+    key: 'auth.oauthToken',
+    defaultValue: '',
+    encrypted: true,
+    category: 'auth',
+    label: 'OAuth Token',
+    description: 'OAuth access token for Claude subscription',
+    type: 'password',
+  },
+  {
+    key: 'auth.refreshToken',
+    defaultValue: '',
+    encrypted: true,
+    category: 'auth',
+    label: 'Refresh Token',
+    description: 'OAuth refresh token',
+    type: 'password',
+  },
+  {
+    key: 'auth.tokenExpiresAt',
+    defaultValue: '',
+    encrypted: false,
+    category: 'auth',
+    label: 'Token Expiry',
+    description: 'When the OAuth token expires',
+    type: 'string',
+  },
+
+  // API Keys
+  {
+    key: 'anthropic.apiKey',
+    defaultValue: '',
+    encrypted: true,
+    category: 'api_keys',
+    label: 'Anthropic API Key',
+    description: 'Your Anthropic API key for Claude',
+    type: 'password',
+  },
+  {
+    key: 'openai.apiKey',
+    defaultValue: '',
+    encrypted: true,
+    category: 'api_keys',
+    label: 'OpenAI API Key',
+    description: 'Your OpenAI API key for embeddings',
+    type: 'password',
+  },
+
+  // Agent settings
+  {
+    key: 'agent.model',
+    defaultValue: 'claude-sonnet-4-20250514',
+    encrypted: false,
+    category: 'agent',
+    label: 'Default Model',
+    description: 'Claude model to use for conversations',
+    type: 'string',
+  },
+  {
+    key: 'agent.compactionThreshold',
+    defaultValue: '120000',
+    encrypted: false,
+    category: 'agent',
+    label: 'Compaction Threshold',
+    description: 'Token count at which to start compacting context',
+    type: 'number',
+  },
+  {
+    key: 'agent.maxContextTokens',
+    defaultValue: '150000',
+    encrypted: false,
+    category: 'agent',
+    label: 'Max Context Tokens',
+    description: 'Maximum tokens in conversation context',
+    type: 'number',
+  },
+  {
+    key: 'agent.thinkingLevel',
+    defaultValue: 'normal',
+    encrypted: false,
+    category: 'agent',
+    label: 'Thinking Level',
+    description: 'How much reasoning to show (none, minimal, normal, extended)',
+    type: 'string',
+  },
+
+  // Telegram settings
+  {
+    key: 'telegram.botToken',
+    defaultValue: '',
+    encrypted: true,
+    category: 'telegram',
+    label: 'Bot Token',
+    description: 'Telegram bot token from @BotFather',
+    type: 'password',
+  },
+  {
+    key: 'telegram.allowedUserIds',
+    defaultValue: '[]',
+    encrypted: false,
+    category: 'telegram',
+    label: 'Allowed User IDs',
+    description: 'Comma-separated list of Telegram user IDs',
+    type: 'array',
+  },
+  {
+    key: 'telegram.enabled',
+    defaultValue: 'false',
+    encrypted: false,
+    category: 'telegram',
+    label: 'Enable Telegram',
+    description: 'Enable Telegram bot integration',
+    type: 'boolean',
+  },
+  {
+    key: 'telegram.defaultChatId',
+    defaultValue: '',
+    encrypted: false,
+    category: 'telegram',
+    label: 'Default Chat ID',
+    description: 'Default chat ID for notifications',
+    type: 'string',
+  },
+
+  // Memory settings
+  {
+    key: 'memory.embeddingProvider',
+    defaultValue: 'openai',
+    encrypted: false,
+    category: 'memory',
+    label: 'Embedding Provider',
+    description: 'Provider for semantic embeddings (openai)',
+    type: 'string',
+  },
+  {
+    key: 'memory.vectorWeight',
+    defaultValue: '0.7',
+    encrypted: false,
+    category: 'memory',
+    label: 'Vector Search Weight',
+    description: 'Weight for semantic similarity (0-1)',
+    type: 'number',
+  },
+  {
+    key: 'memory.keywordWeight',
+    defaultValue: '0.3',
+    encrypted: false,
+    category: 'memory',
+    label: 'Keyword Search Weight',
+    description: 'Weight for keyword matching (0-1)',
+    type: 'number',
+  },
+  {
+    key: 'memory.minScoreThreshold',
+    defaultValue: '0.35',
+    encrypted: false,
+    category: 'memory',
+    label: 'Min Score Threshold',
+    description: 'Minimum score for search results',
+    type: 'number',
+  },
+  {
+    key: 'memory.maxSearchResults',
+    defaultValue: '6',
+    encrypted: false,
+    category: 'memory',
+    label: 'Max Search Results',
+    description: 'Maximum number of search results',
+    type: 'number',
+  },
+
+  // Browser settings
+  {
+    key: 'browser.enabled',
+    defaultValue: 'true',
+    encrypted: false,
+    category: 'browser',
+    label: 'Enable Browser',
+    description: 'Enable browser automation tools',
+    type: 'boolean',
+  },
+  {
+    key: 'browser.cdpUrl',
+    defaultValue: 'http://localhost:9222',
+    encrypted: false,
+    category: 'browser',
+    label: 'CDP URL',
+    description: 'Chrome DevTools Protocol URL',
+    type: 'string',
+  },
+
+  // Scheduler settings
+  {
+    key: 'scheduler.enabled',
+    defaultValue: 'true',
+    encrypted: false,
+    category: 'scheduler',
+    label: 'Enable Scheduler',
+    description: 'Enable cron job scheduler',
+    type: 'boolean',
+  },
+];
+
+class SettingsManagerClass {
+  private static instance: SettingsManagerClass | null = null;
+  private db: Database.Database | null = null;
+  private cache: Map<string, string> = new Map();
+  private initialized: boolean = false;
+
+  private constructor() {}
+
+  static getInstance(): SettingsManagerClass {
+    if (!SettingsManagerClass.instance) {
+      SettingsManagerClass.instance = new SettingsManagerClass();
+    }
+    return SettingsManagerClass.instance;
+  }
+
+  /**
+   * Initialize settings with database path
+   */
+  initialize(dbPath: string): void {
+    this.db = new Database(dbPath);
+    this.createTable();
+    this.loadDefaults();
+    this.loadToCache();
+    this.initialized = true;
+    console.log('[Settings] Initialized');
+  }
+
+  private createTable(): void {
+    if (!this.db) return;
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        encrypted INTEGER DEFAULT 0,
+        category TEXT DEFAULT 'general',
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_settings_category ON settings(category);
+    `);
+  }
+
+  /**
+   * Load default settings that don't exist yet
+   */
+  private loadDefaults(): void {
+    if (!this.db) return;
+
+    const insert = this.db.prepare(`
+      INSERT OR IGNORE INTO settings (key, value, encrypted, category)
+      VALUES (?, ?, ?, ?)
+    `);
+
+    for (const def of SETTINGS_SCHEMA) {
+      insert.run(def.key, def.defaultValue, def.encrypted ? 1 : 0, def.category);
+    }
+  }
+
+  /**
+   * Load all settings to memory cache
+   */
+  private loadToCache(): void {
+    if (!this.db) return;
+
+    const rows = this.db.prepare('SELECT key, value, encrypted FROM settings').all() as Array<{
+      key: string;
+      value: string;
+      encrypted: number;
+    }>;
+
+    for (const row of rows) {
+      let value = row.value;
+
+      // Decrypt if needed
+      if (row.encrypted && value) {
+        try {
+          value = this.decrypt(value);
+        } catch {
+          // If decryption fails, value stays encrypted (might be from old install)
+          console.warn(`[Settings] Failed to decrypt ${row.key}`);
+        }
+      }
+
+      this.cache.set(row.key, value);
+    }
+  }
+
+  /**
+   * Encrypt a value using safeStorage
+   */
+  private encrypt(value: string): string {
+    if (!safeStorage.isEncryptionAvailable()) {
+      console.warn('[Settings] Encryption not available, storing as plain text');
+      return value;
+    }
+    const encrypted = safeStorage.encryptString(value);
+    return encrypted.toString('base64');
+  }
+
+  /**
+   * Decrypt a value using safeStorage
+   */
+  private decrypt(encrypted: string): string {
+    if (!safeStorage.isEncryptionAvailable()) {
+      return encrypted;
+    }
+    const buffer = Buffer.from(encrypted, 'base64');
+    return safeStorage.decryptString(buffer);
+  }
+
+  /**
+   * Get a setting value
+   */
+  get(key: string): string {
+    if (!this.initialized) {
+      console.warn('[Settings] Not initialized, returning default');
+      const def = SETTINGS_SCHEMA.find(s => s.key === key);
+      return def?.defaultValue || '';
+    }
+
+    return this.cache.get(key) || '';
+  }
+
+  /**
+   * Get a setting as a specific type
+   */
+  getNumber(key: string): number {
+    return parseFloat(this.get(key)) || 0;
+  }
+
+  getBoolean(key: string): boolean {
+    return this.get(key) === 'true';
+  }
+
+  getArray(key: string): string[] {
+    try {
+      const value = this.get(key);
+      if (!value) return [];
+      // Try JSON parse first
+      if (value.startsWith('[')) {
+        return JSON.parse(value);
+      }
+      // Fall back to comma-separated
+      return value.split(',').map(s => s.trim()).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Set a setting value
+   */
+  set(key: string, value: string, encrypted?: boolean): void {
+    if (!this.db) throw new Error('Settings not initialized');
+
+    // Determine if should be encrypted
+    const def = SETTINGS_SCHEMA.find(s => s.key === key);
+    const shouldEncrypt = encrypted ?? def?.encrypted ?? false;
+    const category = def?.category || 'general';
+
+    // Encrypt if needed
+    let storedValue = value;
+    if (shouldEncrypt && value) {
+      storedValue = this.encrypt(value);
+    }
+
+    // Update database
+    this.db.prepare(`
+      INSERT INTO settings (key, value, encrypted, category, updated_at)
+      VALUES (?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        encrypted = excluded.encrypted,
+        updated_at = excluded.updated_at
+    `).run(key, storedValue, shouldEncrypt ? 1 : 0, category);
+
+    // Update cache with unencrypted value
+    this.cache.set(key, value);
+
+    console.log(`[Settings] Updated: ${key}`);
+  }
+
+  /**
+   * Delete a setting
+   */
+  delete(key: string): boolean {
+    if (!this.db) return false;
+
+    const result = this.db.prepare('DELETE FROM settings WHERE key = ?').run(key);
+    this.cache.delete(key);
+
+    return result.changes > 0;
+  }
+
+  /**
+   * Get all settings
+   */
+  getAll(): Record<string, string> {
+    const result: Record<string, string> = {};
+    for (const [key, value] of this.cache) {
+      result[key] = value;
+    }
+    return result;
+  }
+
+  /**
+   * Get all settings by category
+   */
+  getByCategory(category: string): Record<string, string> {
+    const result: Record<string, string> = {};
+    for (const def of SETTINGS_SCHEMA) {
+      if (def.category === category) {
+        result[def.key] = this.get(def.key);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Get schema for a category
+   */
+  getSchema(category?: string): SettingDefinition[] {
+    if (category) {
+      return SETTINGS_SCHEMA.filter(s => s.category === category);
+    }
+    return SETTINGS_SCHEMA;
+  }
+
+  /**
+   * Check if required authentication is set
+   */
+  hasRequiredKeys(): boolean {
+    const authMethod = this.get('auth.method');
+
+    // Check for OAuth authentication
+    if (authMethod === 'oauth') {
+      const oauthToken = this.get('auth.oauthToken');
+      return !!oauthToken;
+    }
+
+    // Check for API key authentication
+    const anthropicKey = this.get('anthropic.apiKey');
+    return !!anthropicKey;
+  }
+
+  /**
+   * Get the current authentication method
+   */
+  getAuthMethod(): 'api_key' | 'oauth' | null {
+    const method = this.get('auth.method');
+    if (method === 'oauth' || method === 'api_key') {
+      return method;
+    }
+    // Legacy check - if API key exists, assume api_key method
+    if (this.get('anthropic.apiKey')) {
+      return 'api_key';
+    }
+    return null;
+  }
+
+  /**
+   * Check if first run (no authentication set)
+   */
+  isFirstRun(): boolean {
+    return !this.hasRequiredKeys();
+  }
+
+  /**
+   * Validate an API key by making a test call
+   */
+  async validateAnthropicKey(apiKey: string): Promise<{ valid: boolean; error?: string }> {
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-3-haiku-20240307',
+          max_tokens: 10,
+          messages: [{ role: 'user', content: 'Hi' }],
+        }),
+      });
+
+      if (response.ok) {
+        return { valid: true };
+      }
+
+      const data = await response.json();
+      return { valid: false, error: data.error?.message || 'Invalid API key' };
+    } catch (error) {
+      return { valid: false, error: error instanceof Error ? error.message : 'Connection failed' };
+    }
+  }
+
+  async validateOpenAIKey(apiKey: string): Promise<{ valid: boolean; error?: string }> {
+    try {
+      const response = await fetch('https://api.openai.com/v1/models', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        },
+      });
+
+      if (response.ok) {
+        return { valid: true };
+      }
+
+      const data = await response.json();
+      return { valid: false, error: data.error?.message || 'Invalid API key' };
+    } catch (error) {
+      return { valid: false, error: error instanceof Error ? error.message : 'Connection failed' };
+    }
+  }
+
+  async validateTelegramToken(token: string): Promise<{ valid: boolean; error?: string; botInfo?: any }> {
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+      const data = await response.json();
+
+      if (data.ok) {
+        return { valid: true, botInfo: data.result };
+      }
+
+      return { valid: false, error: data.description || 'Invalid token' };
+    } catch (error) {
+      return { valid: false, error: error instanceof Error ? error.message : 'Connection failed' };
+    }
+  }
+
+  /**
+   * Export settings for backup (excluding encrypted values)
+   */
+  exportSettings(): Record<string, any> {
+    const all = this.getAll();
+    const result: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(all)) {
+      const def = SETTINGS_SCHEMA.find(s => s.key === key);
+      if (def?.encrypted) {
+        result[key] = '***ENCRYPTED***';
+      } else {
+        result[key] = value;
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Import settings from backup
+   */
+  importSettings(settings: Record<string, string>): void {
+    for (const [key, value] of Object.entries(settings)) {
+      if (value !== '***ENCRYPTED***') {
+        this.set(key, value);
+      }
+    }
+  }
+
+  /**
+   * Migrate settings from old config.json file
+   */
+  async migrateFromConfig(configPath: string): Promise<boolean> {
+    try {
+      const fs = await import('fs');
+      if (!fs.existsSync(configPath)) {
+        return false;
+      }
+
+      const content = fs.readFileSync(configPath, 'utf-8');
+      const config = JSON.parse(content);
+
+      // Migrate Anthropic settings
+      if (config.anthropic?.apiKey) {
+        this.set('anthropic.apiKey', config.anthropic.apiKey);
+      }
+      if (config.anthropic?.model) {
+        this.set('agent.model', config.anthropic.model);
+      }
+
+      // Migrate OpenAI settings
+      if (config.openai?.apiKey) {
+        this.set('openai.apiKey', config.openai.apiKey);
+      }
+
+      // Migrate Telegram settings
+      if (config.telegram?.botToken) {
+        this.set('telegram.botToken', config.telegram.botToken);
+      }
+      if (config.telegram?.enabled !== undefined) {
+        this.set('telegram.enabled', config.telegram.enabled.toString());
+      }
+      if (config.telegram?.allowedUserIds?.length) {
+        this.set('telegram.allowedUserIds', JSON.stringify(config.telegram.allowedUserIds));
+      }
+
+      // Migrate scheduler settings
+      if (config.scheduler?.enabled !== undefined) {
+        this.set('scheduler.enabled', config.scheduler.enabled.toString());
+      }
+
+      // Migrate browser settings
+      if (config.tools?.browser?.enabled !== undefined) {
+        this.set('browser.enabled', config.tools.browser.enabled.toString());
+      }
+      if (config.tools?.browser?.cdpUrl) {
+        this.set('browser.cdpUrl', config.tools.browser.cdpUrl);
+      }
+
+      console.log('[Settings] Migrated settings from config.json');
+
+      // Rename the old config file to indicate migration
+      fs.renameSync(configPath, configPath + '.migrated');
+
+      return true;
+    } catch (error) {
+      console.error('[Settings] Migration failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Close the database connection
+   */
+  close(): void {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+    }
+    this.initialized = false;
+  }
+}
+
+export const SettingsManager = SettingsManagerClass.getInstance();

@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pocket Agent</title>
+  <style>
+    :root {
+      --bg-primary: #0a0a0b;
+      --bg-secondary: #141415;
+      --bg-tertiary: #1c1c1e;
+      --border: #2a2a2d;
+      --text-primary: #fafafa;
+      --text-secondary: #a1a1a6;
+      --text-muted: #636366;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --user-bubble: #6366f1;
+      --assistant-bubble: #1c1c1e;
+      --error: #ef4444;
+      --success: #22c55e;
+      --radius: 16px;
+      --radius-sm: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Header */
+    header {
+      background: var(--bg-secondary);
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    header h1 {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .stats {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex;
+      gap: 6px;
+      padding: 10px 20px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .toolbar button {
+      padding: 6px 12px;
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+
+    .toolbar button:hover {
+      background: var(--border);
+      color: var(--text-primary);
+    }
+
+    /* Messages Container */
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      scroll-behavior: smooth;
+    }
+
+    #messages::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #messages::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    #messages::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    #messages::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    /* Message Bubbles */
+    .message {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      line-height: 1.5;
+      font-size: 14px;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+      animation: messageIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      transform-origin: bottom;
+    }
+
+    @keyframes messageIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: var(--user-bubble);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.assistant {
+      align-self: flex-start;
+      background: var(--assistant-bubble);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+      color: var(--text-primary);
+    }
+
+    .message.system {
+      align-self: center;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      padding: 8px 16px;
+    }
+
+    .message.error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--error);
+    }
+
+    /* Code blocks in messages */
+    .message code {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 13px;
+    }
+
+    .message pre {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+      margin: 8px 0;
+    }
+
+    .message pre code {
+      background: none;
+      padding: 0;
+    }
+
+    /* Typing Indicator */
+    .typing {
+      align-self: flex-start;
+      padding: 12px 16px;
+      background: var(--assistant-bubble);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      border-bottom-left-radius: 4px;
+      display: flex;
+      gap: 4px;
+      animation: messageIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .typing-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      animation: typingBounce 1.4s infinite ease-in-out both;
+    }
+
+    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+    .typing-dot:nth-child(3) { animation-delay: 0s; }
+
+    @keyframes typingBounce {
+      0%, 80%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+      }
+      40% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    /* Input Area */
+    #input-area {
+      padding: 16px 20px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+
+    .input-container {
+      flex: 1;
+      display: flex;
+      align-items: flex-end;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 4px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .input-container:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .attach-btn {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .attach-btn:hover {
+      background: var(--border);
+      color: var(--text-primary);
+    }
+
+    .attach-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    #message-input {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      background: transparent;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      resize: none;
+      min-height: 24px;
+      max-height: 150px;
+      line-height: 1.5;
+    }
+
+    #message-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    #send-btn {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    #send-btn:hover:not(:disabled) {
+      background: var(--accent-hover);
+      transform: scale(1.02);
+    }
+
+    #send-btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    #send-btn:disabled {
+      background: var(--bg-tertiary);
+      color: var(--text-muted);
+      cursor: not-allowed;
+    }
+
+    #send-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Empty State */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      gap: 12px;
+      padding: 40px;
+      animation: fadeIn 0.5s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      opacity: 0.5;
+    }
+
+    .empty-state p {
+      font-size: 14px;
+      text-align: center;
+    }
+
+    /* Timestamp */
+    .timestamp {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 8px 0;
+    }
+
+    /* File Input (hidden) */
+    #file-input {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <div class="status-dot"></div>
+      <h1>Pocket Agent</h1>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="toolbar">
+    <button onclick="clearChat()">Clear</button>
+    <button onclick="loadHistory()">Refresh</button>
+    <button onclick="showFacts()">Facts</button>
+    <div style="flex: 1;"></div>
+    <button onclick="openSettings()" title="Settings">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+
+  <div id="messages"></div>
+
+  <div id="input-area">
+    <div class="input-container">
+      <button class="attach-btn" onclick="triggerAttach()" title="Attach file">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+        </svg>
+      </button>
+      <textarea
+        id="message-input"
+        placeholder="Message Pocket Agent..."
+        rows="1"
+        onkeydown="handleKeydown(event)"
+      ></textarea>
+    </div>
+    <button id="send-btn" onclick="sendMessage()" title="Send message">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+    </button>
+  </div>
+
+  <input type="file" id="file-input" onchange="handleFileSelect(event)" multiple>
+
+  <script>
+    const messagesDiv = document.getElementById('messages');
+    const input = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const statsDiv = document.getElementById('stats');
+    const fileInput = document.getElementById('file-input');
+
+    let isLoading = false;
+    let pendingFiles = [];
+
+    // Initialize
+    window.addEventListener('DOMContentLoaded', () => {
+      loadHistory();
+      updateStats();
+      input.focus();
+    });
+
+    async function loadHistory() {
+      try {
+        const history = await window.pocketAgent.getHistory(100);
+        messagesDiv.innerHTML = '';
+
+        if (history.length === 0) {
+          showEmptyState();
+        } else {
+          let lastDate = null;
+          for (const msg of history) {
+            // Add date separator if needed
+            const msgDate = new Date(msg.timestamp).toLocaleDateString();
+            if (msgDate !== lastDate) {
+              addTimestamp(msgDate);
+              lastDate = msgDate;
+            }
+            addMessage(msg.role, msg.content, false);
+          }
+        }
+
+        scrollToBottom();
+      } catch (err) {
+        console.error('Failed to load history:', err);
+        showEmptyState();
+      }
+    }
+
+    async function updateStats() {
+      try {
+        const stats = await window.pocketAgent.getStats();
+        if (stats) {
+          const tokens = stats.estimatedTokens >= 1000
+            ? `${(stats.estimatedTokens / 1000).toFixed(1)}k`
+            : stats.estimatedTokens;
+          statsDiv.textContent = `${stats.messageCount} messages · ${stats.factCount} facts · ${tokens} tokens`;
+        }
+      } catch (err) {
+        console.error('Failed to get stats:', err);
+      }
+    }
+
+    async function sendMessage() {
+      const message = input.value.trim();
+      if (!message || isLoading) return;
+
+      // Clear empty state if present
+      const emptyState = messagesDiv.querySelector('.empty-state');
+      if (emptyState) emptyState.remove();
+
+      isLoading = true;
+      sendBtn.disabled = true;
+      input.value = '';
+      input.style.height = 'auto';
+
+      addMessage('user', message);
+      const typingEl = addTyping();
+      scrollToBottom();
+
+      try {
+        const result = await window.pocketAgent.send(message);
+
+        typingEl.remove();
+
+        if (result.success) {
+          addMessage('assistant', result.response);
+        } else {
+          addMessage('error', result.error);
+        }
+
+        updateStats();
+      } catch (err) {
+        typingEl.remove();
+        addMessage('error', err.message || 'Something went wrong');
+      }
+
+      isLoading = false;
+      sendBtn.disabled = false;
+      scrollToBottom();
+      input.focus();
+    }
+
+    async function clearChat() {
+      if (!confirm('Clear conversation history? Your saved facts will be preserved.')) return;
+
+      try {
+        await window.pocketAgent.clearConversation();
+        messagesDiv.innerHTML = '';
+        showEmptyState();
+        updateStats();
+      } catch (err) {
+        addMessage('error', err.message);
+      }
+    }
+
+    async function showFacts() {
+      try {
+        const facts = await window.pocketAgent.listFacts();
+        if (facts.length === 0) {
+          addMessage('system', 'No facts stored yet. I learn facts when you tell me things about yourself.');
+        } else {
+          const grouped = {};
+          for (const fact of facts) {
+            if (!grouped[fact.category]) grouped[fact.category] = [];
+            grouped[fact.category].push(fact);
+          }
+
+          let text = `📚 Stored Facts (${facts.length})\n\n`;
+          for (const [category, categoryFacts] of Object.entries(grouped)) {
+            text += `${category.toUpperCase()}\n`;
+            for (const f of categoryFacts) {
+              text += `  • ${f.subject}: ${f.content}\n`;
+            }
+            text += '\n';
+          }
+          addMessage('system', text.trim());
+        }
+        scrollToBottom();
+      } catch (err) {
+        addMessage('error', err.message);
+      }
+    }
+
+    function addMessage(role, content, animate = true) {
+      const div = document.createElement('div');
+      div.className = `message ${role}`;
+      if (!animate) div.style.animation = 'none';
+
+      // Basic markdown-like formatting
+      div.innerHTML = formatContent(content);
+
+      messagesDiv.appendChild(div);
+      return div;
+    }
+
+    function formatContent(text) {
+      // Escape HTML
+      text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      // Code blocks
+      text = text.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+
+      // Inline code
+      text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      // Bold
+      text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+      // Italic
+      text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+      return text;
+    }
+
+    function addTimestamp(date) {
+      const div = document.createElement('div');
+      div.className = 'timestamp';
+      div.textContent = date;
+      messagesDiv.appendChild(div);
+    }
+
+    function addTyping() {
+      const div = document.createElement('div');
+      div.className = 'typing';
+      div.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+      messagesDiv.appendChild(div);
+      return div;
+    }
+
+    function showEmptyState() {
+      messagesDiv.innerHTML = `
+        <div class="empty-state">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <p>Start a conversation with your AI assistant.<br>I remember everything across sessions.</p>
+        </div>
+      `;
+    }
+
+    function scrollToBottom() {
+      requestAnimationFrame(() => {
+        messagesDiv.scrollTo({
+          top: messagesDiv.scrollHeight,
+          behavior: 'smooth'
+        });
+      });
+    }
+
+    function handleKeydown(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    function triggerAttach() {
+      fileInput.click();
+    }
+
+    function handleFileSelect(e) {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+
+      // For now, show file names in input
+      const names = files.map(f => f.name).join(', ');
+      const current = input.value.trim();
+      input.value = current ? `${current}\n\n[Attached: ${names}]` : `[Attached: ${names}]`;
+      input.focus();
+
+      // Reset file input
+      fileInput.value = '';
+
+      // TODO: Implement actual file handling
+      addMessage('system', `File attachment is coming soon. Selected: ${names}`);
+    }
+
+    // Auto-resize textarea
+    input.addEventListener('input', () => {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      // Cmd/Ctrl + K to clear
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        clearChat();
+      }
+      // Cmd/Ctrl + , to open settings
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        openSettings();
+      }
+    });
+
+    async function openSettings() {
+      try {
+        await window.pocketAgent.openSettings();
+      } catch (err) {
+        console.error('Failed to open settings:', err);
+      }
+    }
+  </script>
+</body>
+</html>

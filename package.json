@@ -1,0 +1,32 @@
+{
+  "name": "pocket-agent",
+  "version": "1.0.0",
+  "description": "Desktop AI agent with persistent memory powered by Claude Agent SDK",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && electron .",
+    "dev": "tsc && electron .",
+    "watch": "tsc -w",
+    "electron": "electron .",
+    "clean": "rm -rf dist",
+    "rebuild": "npm run clean && npm run build"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.12",
+    "better-sqlite3": "^11.7.0",
+    "grammy": "^1.31.0",
+    "node-cron": "^3.0.3",
+    "openai": "^6.16.0",
+    "puppeteer-core": "^23.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.10.0",
+    "@types/node-cron": "^3.0.11",
+    "electron": "^33.2.0",
+    "typescript": "^5.7.0"
+  }
+}

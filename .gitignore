@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.js.map
+*.d.ts.map
+.env
+.env.local
+*.db
+*.db-journal
+.DS_Store
+
+# Config with secrets
+config.json
