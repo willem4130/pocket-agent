@@ -83,7 +83,61 @@ export const SETTINGS_SCHEMA: SettingDefinition[] = [
     encrypted: true,
     category: 'api_keys',
     label: 'OpenAI API Key',
-    description: 'Your OpenAI API key for embeddings',
+    description: 'Your OpenAI API key for embeddings and image generation',
+    type: 'password',
+  },
+  {
+    key: 'gemini.apiKey',
+    defaultValue: '',
+    encrypted: true,
+    category: 'api_keys',
+    label: 'Google Gemini API Key',
+    description: 'For Gemini-powered skills (nano-banana-pro)',
+    type: 'password',
+  },
+  {
+    key: 'google.placesApiKey',
+    defaultValue: '',
+    encrypted: true,
+    category: 'api_keys',
+    label: 'Google Places API Key',
+    description: 'For location skills (goplaces, local-places)',
+    type: 'password',
+  },
+  {
+    key: 'notion.apiKey',
+    defaultValue: '',
+    encrypted: true,
+    category: 'api_keys',
+    label: 'Notion API Key',
+    description: 'For Notion integration',
+    type: 'password',
+  },
+  {
+    key: 'trello.apiKey',
+    defaultValue: '',
+    encrypted: true,
+    category: 'api_keys',
+    label: 'Trello API Key',
+    description: 'For Trello integration',
+    type: 'password',
+  },
+  {
+    key: 'trello.token',
+    defaultValue: '',
+    encrypted: true,
+    category: 'api_keys',
+    label: 'Trello Token',
+    description: 'Your Trello authorization token',
+    type: 'password',
+  },
+  {
+    key: 'elevenlabs.apiKey',
+    defaultValue: '',
+    encrypted: true,
+    category: 'api_keys',
+    label: 'ElevenLabs API Key',
+    description: 'For text-to-speech (sag skill)',
     type: 'password',
   },
 
@@ -688,6 +742,66 @@ class SettingsManagerClass {
     } catch (error) {
       return { valid: false, error: error instanceof Error ? error.message : 'Connection failed' };
     }
+  }
+
+  /**
+   * Get API keys as environment variables for skill execution.
+   * Maps settings keys to the environment variable names that skills expect.
+   * Returns empty object if SettingsManager is not initialized yet.
+   */
+  getApiKeysAsEnv(): Record<string, string> {
+    if (!this.initialized) {
+      return {};
+    }
+
+    const env: Record<string, string> = {};
+
+    // Map settings keys to environment variable names
+    const keyMappings: Record<string, string> = {
+      'openai.apiKey': 'OPENAI_API_KEY',
+      'gemini.apiKey': 'GEMINI_API_KEY',
+      'google.placesApiKey': 'GOOGLE_PLACES_API_KEY',
+      'notion.apiKey': 'NOTION_API_KEY',
+      'trello.apiKey': 'TRELLO_API_KEY',
+      'trello.token': 'TRELLO_TOKEN',
+      'elevenlabs.apiKey': 'ELEVENLABS_API_KEY',
+      'anthropic.apiKey': 'ANTHROPIC_API_KEY',
+    };
+
+    for (const [settingKey, envVar] of Object.entries(keyMappings)) {
+      const value = this.get(settingKey);
+      if (value) {
+        env[envVar] = value;
+      }
+    }
+
+    return env;
+  }
+
+  /**
+   * Check if a specific API key is configured.
+   * Returns false if SettingsManager is not initialized yet.
+   */
+  hasApiKey(envVarName: string): boolean {
+    if (!this.initialized) {
+      return false;
+    }
+
+    const reverseMapping: Record<string, string> = {
+      'OPENAI_API_KEY': 'openai.apiKey',
+      'GEMINI_API_KEY': 'gemini.apiKey',
+      'GOOGLE_PLACES_API_KEY': 'google.placesApiKey',
+      'NOTION_API_KEY': 'notion.apiKey',
+      'TRELLO_API_KEY': 'trello.apiKey',
+      'TRELLO_TOKEN': 'trello.token',
+      'ELEVENLABS_API_KEY': 'elevenlabs.apiKey',
+      'ANTHROPIC_API_KEY': 'anthropic.apiKey',
+    };
+
+    const settingKey = reverseMapping[envVarName];
+    if (!settingKey) return false;
+
+    return !!this.get(settingKey);
   }
 
   /**

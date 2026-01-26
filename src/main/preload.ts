@@ -80,6 +80,8 @@ contextBridge.exposeInMainWorld('pocketAgent', {
   getSkillsStatus: () => ipcRenderer.invoke('skills:getStatus'),
   installSkillDeps: (skillName: string) => ipcRenderer.invoke('skills:install', skillName),
   openSkillsSetup: () => ipcRenderer.invoke('app:openSkillsSetup'),
+  openPermissionSettings: (permissionType: string) => ipcRenderer.invoke('skills:openPermissionSettings', permissionType),
+  checkPermission: (permissionType: string) => ipcRenderer.invoke('skills:checkPermission', permissionType),
 });
 
 // Type declarations for renderer
@@ -146,6 +148,10 @@ declare global {
           name: string;
           available: boolean;
           missingBins: string[];
+          missingEnvVars: string[];
+          requiredEnvVars: string[];
+          missingPermissions: string[];
+          requiredPermissions: string[];
           osCompatible: boolean;
           installOptions: Array<{ id: string; kind: string; label: string; bins?: string[] }>;
         }>;
@@ -154,6 +160,8 @@ declare global {
       }>;
       installSkillDeps: (skillName: string) => Promise<{ success: boolean; installed: string[]; failed: string[] }>;
       openSkillsSetup: () => Promise<void>;
+      openPermissionSettings: (permissionType: string) => Promise<void>;
+      checkPermission: (permissionType: string) => Promise<{ type: string; granted: boolean; canRequest: boolean; label: string; description: string; settingsUrl: string }>;
     };
   }
 }

@@ -178,6 +178,26 @@
 
     .deps.missing { color: var(--warning); }
 
+    .deps .env-var {
+      color: var(--accent);
+      font-style: italic;
+    }
+
+    .deps .env-missing {
+      color: var(--error);
+    }
+
+    .deps .perm-missing {
+      color: var(--accent-secondary);
+      cursor: pointer;
+      text-decoration: underline;
+      text-decoration-style: dotted;
+    }
+
+    .deps .perm-missing:hover {
+      color: var(--accent);
+    }
+
     .status {
       font-size: 11px;
       font-weight: 500;
@@ -316,14 +336,62 @@
           const e = emojis[s.name] || '🔧';
           const st = s.available ? 'ready' : (s.osCompatible ? 'needs' : 'na');
           const stTxt = s.available ? 'Unlocked' : (s.osCompatible ? 'Locked' : 'N/A');
-          const deps = s.missingBins.length ? s.missingBins.join(', ') : (s.available ? '—' : 'none');
-          const depsClass = s.missingBins.length ? 'missing' : '';
-          const canInstall = !s.available && s.osCompatible && s.installOptions.length;
-          const btn = canInstall
-            ? `<button id="btn-${s.name}" onclick="install('${s.name}')">Unlock</button>` : '';
+
+          // Build requirements display
+          let depsHtml = '';
+          let depsClass = '';
+
+          if (s.missingBins && s.missingBins.length) {
+            depsHtml += s.missingBins.map(b => `<span class="missing">${esc(b)}</span>`).join(', ');
+            depsClass = 'missing';
+          }
+
+          if (s.missingEnvVars && s.missingEnvVars.length) {
+            if (depsHtml) depsHtml += ', ';
+            depsHtml += s.missingEnvVars.map(v => `<span class="env-missing">${esc(v)}</span>`).join(', ');
+            depsClass = 'missing';
+          }
+
+          if (s.missingPermissions && s.missingPermissions.length) {
+            if (depsHtml) depsHtml += ', ';
+            depsHtml += s.missingPermissions.map(p =>
+              `<span class="perm-missing" onclick="openPermission('${esc(p)}')" title="Click to grant">${esc(p)}</span>`
+            ).join(', ');
+            depsClass = 'missing';
+          }
+
+          if (!depsHtml) {
+            depsHtml = s.available ? '—' : 'none';
+          }
+
+          // Can only auto-install if only bins are missing (API keys and permissions need manual config)
+          const hasMissingBins = s.missingBins && s.missingBins.length > 0;
+          const hasMissingEnvVars = s.missingEnvVars && s.missingEnvVars.length > 0;
+          const hasMissingPerms = s.missingPermissions && s.missingPermissions.length > 0;
+
+          const canInstall = !s.available && s.osCompatible && s.installOptions.length
+            && hasMissingBins && !hasMissingEnvVars && !hasMissingPerms;
+
+          // Show "Add Key" button if only API keys are missing
+          const needsApiKey = !s.available && s.osCompatible
+            && !hasMissingBins && hasMissingEnvVars && !hasMissingPerms;
+
+          // Show "Grant" button if only permissions are missing
+          const needsPermission = !s.available && s.osCompatible
+            && !hasMissingBins && !hasMissingEnvVars && hasMissingPerms;
+
+          let btn = '';
+          if (canInstall) {
+            btn = `<button id="btn-${s.name}" onclick="install('${s.name}')">Unlock</button>`;
+          } else if (needsApiKey) {
+            btn = `<button id="btn-${s.name}" onclick="openSettings()">Add Key</button>`;
+          } else if (needsPermission) {
+            btn = `<button id="btn-${s.name}" onclick="openPermission('${s.missingPermissions[0]}')">Grant</button>`;
+          }
+
           return `<tr id="row-${s.name}">
             <td class="name"><span>${e}</span>${esc(s.name)}</td>
-            <td class="deps ${depsClass}">${esc(deps)}</td>
+            <td class="deps ${depsClass}">${depsHtml}</td>
             <td id="status-${s.name}"><span class="status ${st}">${stTxt}</span></td>
             <td class="actions">${btn}</td>
           </tr>`;
@@ -491,6 +559,23 @@
       const d = document.createElement('div');
       d.textContent = s;
       return d.innerHTML;
+    }
+
+    async function openSettings() {
+      try {
+        await window.pocketAgent.openSettings();
+      } catch (e) {
+        toast('Failed to open settings', 'error');
+      }
+    }
+
+    async function openPermission(permType) {
+      try {
+        await window.pocketAgent.openPermissionSettings(permType);
+        toast('Opening System Settings...', 'success');
+      } catch (e) {
+        toast('Failed to open settings', 'error');
+      }
     }
 
     load();

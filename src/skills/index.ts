@@ -11,6 +11,11 @@ const execAsync = promisify(exec);
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { SettingsManager } from '../settings';
+import { PermissionType, getMissingPermissions, isMacOS } from '../permissions/macos';
+
+// Re-export PermissionType for external use
+export type { PermissionType } from '../permissions/macos';
 
 // Types
 export interface InstallOption {
@@ -31,6 +36,8 @@ export interface SkillDependency {
   os: string[];
   install: InstallOption[];
   requires_config?: string[];
+  requires_env?: string[];
+  requires_permissions?: PermissionType[];
 }
 
 export interface SkillsManifest {
@@ -44,6 +51,10 @@ export interface SkillStatus {
   name: string;
   available: boolean;
   missingBins: string[];
+  missingEnvVars: string[];
+  requiredEnvVars: string[];
+  missingPermissions: PermissionType[];
+  requiredPermissions: PermissionType[];
   osCompatible: boolean;
   installOptions: InstallOption[];
 }
@@ -213,6 +224,14 @@ export function getSkillStatus(name: string, skill: SkillDependency): SkillStatu
   const osCompatible = isOsCompatible(skill);
   const missingBins = skill.bins.filter((bin) => !isBinAvailable(bin));
 
+  // Check for required environment variables / API keys
+  const requiredEnvVars = skill.requires_env || [];
+  const missingEnvVars = requiredEnvVars.filter((envVar) => !SettingsManager.hasApiKey(envVar));
+
+  // Check for required permissions (macOS only)
+  const requiredPermissions = skill.requires_permissions || [];
+  const missingPermissions = isMacOS() ? getMissingPermissions(requiredPermissions) : [];
+
   // Filter install options for current OS
   const installOptions = skill.install.filter((opt) => {
     if (!opt.os || opt.os.length === 0) return true;
@@ -221,8 +240,16 @@ export function getSkillStatus(name: string, skill: SkillDependency): SkillStatu
 
   return {
     name,
-    available: osCompatible && missingBins.length === 0,
+    available:
+      osCompatible &&
+      missingBins.length === 0 &&
+      missingEnvVars.length === 0 &&
+      missingPermissions.length === 0,
     missingBins,
+    missingEnvVars,
+    requiredEnvVars,
+    missingPermissions,
+    requiredPermissions,
     osCompatible,
     installOptions,
   };

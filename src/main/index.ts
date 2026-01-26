@@ -1087,6 +1087,17 @@ function setupIPC(): void {
     return result;
   });
 
+  ipcMain.handle('skills:openPermissionSettings', async (_, permissionType: string) => {
+    const { openPermissionSettings } = await import('../permissions/macos');
+    await openPermissionSettings(permissionType as Parameters<typeof openPermissionSettings>[0]);
+  });
+
+  ipcMain.handle('skills:checkPermission', async (_, permissionType: string) => {
+    const { getPermissionStatus } = await import('../permissions/macos');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return getPermissionStatus(permissionType as any);
+  });
+
   ipcMain.handle('app:openSkillsSetup', async () => {
     createSkillsSetupWindow();
   });

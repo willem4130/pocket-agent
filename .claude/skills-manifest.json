@@ -15,14 +15,16 @@
       "os": ["darwin"],
       "install": [
         {"id": "brew", "kind": "brew", "formula": "antoniorodr/memo/memo", "bins": ["memo"], "label": "Install memo via Homebrew"}
-      ]
+      ],
+      "requires_permissions": ["automation"]
     },
     "apple-reminders": {
       "bins": ["remindctl"],
       "os": ["darwin"],
       "install": [
         {"id": "brew", "kind": "brew", "formula": "steipete/tap/remindctl", "bins": ["remindctl"], "label": "Install remindctl via Homebrew"}
-      ]
+      ],
+      "requires_permissions": ["reminders"]
     },
     "bear-notes": {
       "bins": ["grizzly"],
@@ -51,14 +53,16 @@
       "os": [],
       "install": [
         {"id": "go", "kind": "go", "module": "github.com/steipete/blucli/cmd/blu@latest", "bins": ["blu"], "label": "Install blucli (go)"}
-      ]
+      ],
+      "requires_permissions": ["bluetooth"]
     },
     "camsnap": {
       "bins": ["camsnap"],
       "os": [],
       "install": [
         {"id": "brew", "kind": "brew", "formula": "steipete/tap/camsnap", "bins": ["camsnap"], "label": "Install camsnap (brew)"}
-      ]
+      ],
+      "requires_permissions": ["camera"]
     },
     "coding-agent": {
       "bins": [],
@@ -120,7 +124,8 @@
       "os": [],
       "install": [
         {"id": "brew", "kind": "brew", "formula": "steipete/tap/goplaces", "bins": ["goplaces"], "label": "Install goplaces (brew)"}
-      ]
+      ],
+      "requires_env": ["GOOGLE_PLACES_API_KEY"]
     },
     "himalaya": {
       "bins": ["himalaya"],
@@ -134,14 +139,16 @@
       "os": ["darwin"],
       "install": [
         {"id": "brew", "kind": "brew", "formula": "steipete/tap/imsg", "bins": ["imsg"], "label": "Install imsg (brew)"}
-      ]
+      ],
+      "requires_permissions": ["full-disk-access", "automation"]
     },
     "local-places": {
       "bins": ["uv"],
       "os": [],
       "install": [
         {"id": "brew", "kind": "brew", "formula": "uv", "bins": ["uv"], "label": "Install uv (brew)"}
-      ]
+      ],
+      "requires_env": ["GOOGLE_PLACES_API_KEY"]
     },
     "mcporter": {
       "bins": ["mcporter"],
@@ -162,7 +169,8 @@
       "os": [],
       "install": [
         {"id": "brew", "kind": "brew", "formula": "uv", "bins": ["uv"], "label": "Install uv (brew)"}
-      ]
+      ],
+      "requires_env": ["GEMINI_API_KEY"]
     },
     "nano-pdf": {
       "bins": ["nano-pdf"],
@@ -175,7 +183,7 @@
       "bins": [],
       "os": [],
       "install": [],
-      "requires_config": ["notion_api_key"]
+      "requires_env": ["NOTION_API_KEY"]
     },
     "obsidian": {
       "bins": ["obsidian-cli"],
@@ -190,13 +198,13 @@
       "install": [
         {"id": "brew", "kind": "brew", "formula": "python", "bins": ["python3"], "label": "Install Python (brew)"}
       ],
-      "requires_config": ["openai_api_key"]
+      "requires_env": ["OPENAI_API_KEY"]
     },
     "openai-whisper-api": {
       "bins": ["curl"],
       "os": [],
       "install": [],
-      "requires_config": ["openai_api_key"]
+      "requires_env": ["OPENAI_API_KEY"]
     },
     "openai-whisper": {
       "bins": ["whisper"],
@@ -232,14 +240,16 @@
       "os": ["darwin"],
       "install": [
         {"id": "brew", "kind": "brew", "formula": "steipete/tap/peekaboo", "bins": ["peekaboo"], "label": "Install Peekaboo (brew)"}
-      ]
+      ],
+      "requires_permissions": ["screen-recording", "accessibility"]
     },
     "sag": {
       "bins": ["sag"],
       "os": [],
       "install": [
         {"id": "brew", "kind": "brew", "formula": "steipete/tap/sag", "bins": ["sag"], "label": "Install sag (brew)"}
-      ]
+      ],
+      "requires_env": ["ELEVENLABS_API_KEY"]
     },
     "session-logs": {
       "bins": ["jq", "rg"],
@@ -302,7 +312,8 @@
       "os": ["darwin"],
       "install": [
         {"id": "go", "kind": "go", "module": "github.com/ossianhempel/things3-cli/cmd/things@latest", "bins": ["things"], "label": "Install things3-cli (go)"}
-      ]
+      ],
+      "requires_permissions": ["full-disk-access"]
     },
     "tmux": {
       "bins": ["tmux"],
@@ -317,7 +328,7 @@
       "install": [
         {"id": "brew", "kind": "brew", "formula": "jq", "bins": ["jq"], "label": "Install jq (brew)"}
       ],
-      "requires_config": ["trello_api_key"]
+      "requires_env": ["TRELLO_API_KEY", "TRELLO_TOKEN"]
     },
     "video-frames": {
       "bins": ["ffmpeg"],
