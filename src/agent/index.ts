@@ -13,10 +13,14 @@ const COMPACTION_THRESHOLD = 120000; // Start compacting at 80% capacity
 
 // Status event types
 export type AgentStatus = {
-  type: 'thinking' | 'tool_start' | 'tool_end' | 'responding' | 'done';
+  type: 'thinking' | 'tool_start' | 'tool_end' | 'responding' | 'done' | 'subagent_start' | 'subagent_update' | 'subagent_end';
   toolName?: string;
   toolInput?: string;
   message?: string;
+  // Subagent tracking
+  agentId?: string;
+  agentType?: string;
+  agentCount?: number;  // Number of active subagents
 };
 
 // SDK types (loaded dynamically)
@@ -175,7 +179,7 @@ class AgentManagerClass extends EventEmitter {
       const options = await this.buildOptions(factsContext);
 
       console.log('[AgentManager] Calling query()...');
-      this.emitStatus({ type: 'thinking', message: 'Processing...' });
+      this.emitStatus({ type: 'thinking', message: 'hmm let me think 🤔' });
 
       const queryResult = query({ prompt: fullPrompt, options });
       let response = '';
@@ -604,6 +608,9 @@ pty_exec(command="htop", timeout=30000)
     this.emit('status', status);
   }
 
+  // Track active subagents
+  private activeSubagents: Map<string, { type: string; description: string }> = new Map();
+
   private processStatusFromMessage(message: unknown): void {
     // Handle tool use from assistant messages
     const msg = message as { type?: string; subtype?: string; message?: { content?: unknown } };
@@ -612,14 +619,35 @@ pty_exec(command="htop", timeout=30000)
       if (Array.isArray(content)) {
         for (const block of content) {
           if (block?.type === 'tool_use') {
-            const toolName = this.formatToolName(block.name);
+            const rawName = block.name as string;
+            const toolName = this.formatToolName(rawName);
             const toolInput = this.formatToolInput(block.input);
-            this.emitStatus({
-              type: 'tool_start',
-              toolName,
-              toolInput,
-              message: `Using ${toolName}...`,
-            });
+
+            // Check if this is a Task (subagent) tool
+            if (rawName === 'Task') {
+              const input = block.input as { subagent_type?: string; description?: string; prompt?: string };
+              const agentId = `agent-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+              const agentType = input.subagent_type || 'general';
+              const description = input.description || input.prompt?.slice(0, 50) || 'working on it';
+
+              this.activeSubagents.set(agentId, { type: agentType, description });
+
+              this.emitStatus({
+                type: 'subagent_start',
+                agentId,
+                agentType,
+                toolInput: description,
+                agentCount: this.activeSubagents.size,
+                message: this.getSubagentMessage(agentType),
+              });
+            } else {
+              this.emitStatus({
+                type: 'tool_start',
+                toolName,
+                toolInput,
+                message: `Using ${toolName}...`,
+              });
+            }
           }
         }
       }
@@ -631,10 +659,34 @@ pty_exec(command="htop", timeout=30000)
       if (Array.isArray(content)) {
         for (const block of content) {
           if (block?.type === 'tool_result') {
-            this.emitStatus({
-              type: 'tool_end',
-              message: 'Processing result...',
-            });
+            // Check if any subagents completed
+            if (this.activeSubagents.size > 0) {
+              // Remove one subagent (we don't have exact ID matching, so remove oldest)
+              const firstKey = this.activeSubagents.keys().next().value;
+              if (firstKey) {
+                this.activeSubagents.delete(firstKey);
+              }
+
+              if (this.activeSubagents.size > 0) {
+                // Still have active subagents
+                this.emitStatus({
+                  type: 'subagent_update',
+                  agentCount: this.activeSubagents.size,
+                  message: `${this.activeSubagents.size} helper${this.activeSubagents.size > 1 ? 's' : ''} still working 🔄`,
+                });
+              } else {
+                this.emitStatus({
+                  type: 'subagent_end',
+                  agentCount: 0,
+                  message: 'helpers done, processing... ✨',
+                });
+              }
+            } else {
+              this.emitStatus({
+                type: 'tool_end',
+                message: 'got it, thinking... 💭',
+              });
+            }
           }
         }
       }
@@ -648,41 +700,64 @@ pty_exec(command="htop", timeout=30000)
     }
   }
 
+  private getSubagentMessage(agentType: string): string {
+    const messages: Record<string, string> = {
+      'Explore': 'sent out a scout to explore 🔭',
+      'Plan': 'calling in the architect 📐',
+      'Bash': 'spawning a terminal wizard 🧙',
+      'general-purpose': 'summoning a helper 🤖',
+    };
+    return messages[agentType] || `spawning ${agentType} agent 🚀`;
+  }
+
   private formatToolName(name: string): string {
-    // Make tool names more user-friendly
+    // Fun, casual tool names that match PA's vibe
     const friendlyNames: Record<string, string> = {
       // SDK built-in tools
-      Read: 'Reading file',
-      Write: 'Writing file',
-      Edit: 'Editing file',
-      Bash: 'Running command',
-      Glob: 'Searching files',
-      Grep: 'Searching code',
-      WebSearch: 'Searching web',
-      WebFetch: 'Fetching page',
-      Task: 'Spawning agent',
-      NotebookEdit: 'Editing notebook',
+      Read: 'peeking at this file 👀',
+      Write: 'writing stuff down ✍️',
+      Edit: 'tweaking some code',
+      Bash: 'running terminal magic 🪄',
+      Glob: 'hunting for files 🔍',
+      Grep: 'digging through code',
+      WebSearch: 'googling it rn',
+      WebFetch: 'grabbing that page',
+      Task: 'summoning a helper 🧙',
+      NotebookEdit: 'editing notebook',
 
       // Memory tools
-      remember: 'Saving to memory',
-      forget: 'Removing from memory',
-      list_facts: 'Listing facts',
-      memory_search: 'Searching memory',
+      remember: 'saving this to the brain 🧠',
+      forget: 'yeeting from memory',
+      list_facts: 'checking what i know',
+      memory_search: 'searching the archives',
 
       // Browser tool
-      browser: 'Browser automation',
+      browser: 'doing browser things 🌐',
 
       // Computer use tool
-      computer: 'Desktop automation',
+      computer: 'taking over the desktop 🖥️',
 
       // Scheduler tools
-      schedule_task: 'Creating reminder',
-      list_scheduled_tasks: 'Listing reminders',
-      delete_scheduled_task: 'Deleting reminder',
+      schedule_task: 'setting a reminder ⏰',
+      list_scheduled_tasks: 'checking the schedule',
+      delete_scheduled_task: 'nuking that reminder',
 
       // macOS tools
-      notify: 'Sending notification',
-      pty_exec: 'Running interactive command',
+      notify: 'sending a ping 🔔',
+      pty_exec: 'running fancy terminal stuff',
+
+      // Task tools
+      task_add: 'adding to the todo list ✅',
+      task_list: 'checking your tasks',
+      task_complete: 'marking it done 🎉',
+      task_delete: 'removing that task',
+      task_due: 'checking what\'s due',
+
+      // Calendar tools
+      calendar_add: 'adding to calendar 📅',
+      calendar_list: 'checking the calendar',
+      calendar_upcoming: 'seeing what\'s coming up',
+      calendar_delete: 'removing that event',
     };
     return friendlyNames[name] || name;
   }

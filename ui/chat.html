@@ -414,7 +414,51 @@
     .status-action {
       font-size: 13px;
       font-weight: 500;
-      color: var(--text-primary);
+      background: linear-gradient(
+        90deg,
+        var(--text-primary) 0%,
+        var(--accent) 25%,
+        var(--text-primary) 50%,
+        var(--accent) 75%,
+        var(--text-primary) 100%
+      );
+      background-size: 200% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer 2s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+
+    /* Subagent active state - purple/pink vibe */
+    .status-indicator.subagent-active {
+      border-color: #a855f7;
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%);
+    }
+
+    .status-indicator.subagent-active .status-spinner {
+      border-color: rgba(168, 85, 247, 0.3);
+      border-top-color: #a855f7;
+    }
+
+    .status-indicator.subagent-active .status-action {
+      background: linear-gradient(
+        90deg,
+        #a855f7 0%,
+        #ec4899 25%,
+        #a855f7 50%,
+        #ec4899 75%,
+        #a855f7 100%
+      );
+      background-size: 200% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer 1.5s ease-in-out infinite;
     }
 
     .status-detail {
@@ -1103,7 +1147,7 @@
 
       // Show user message with attachments
       addMessage('user', message, true, attachments);
-      currentStatusEl = addStatusIndicator('Thinking...');
+      currentStatusEl = addStatusIndicator('hmm let me think 🤔');
       scrollToBottom();
 
       // Build the full message with attachments
@@ -1318,11 +1362,12 @@
       const detailEl = currentStatusEl.querySelector('.status-detail');
 
       if (status.type === 'thinking') {
-        actionEl.textContent = status.message || 'Thinking...';
+        actionEl.textContent = status.message || 'hmm let me think 🤔';
         detailEl.textContent = '';
         detailEl.style.display = 'none';
+        currentStatusEl.classList.remove('subagent-active');
       } else if (status.type === 'tool_start') {
-        actionEl.textContent = status.toolName || 'Using tool...';
+        actionEl.textContent = status.toolName || 'doing something cool ✨';
         if (status.toolInput) {
           detailEl.textContent = status.toolInput;
           detailEl.title = status.toolInput;
@@ -1331,14 +1376,41 @@
           detailEl.textContent = '';
           detailEl.style.display = 'none';
         }
+        currentStatusEl.classList.remove('subagent-active');
       } else if (status.type === 'tool_end') {
-        actionEl.textContent = 'Processing result...';
+        actionEl.textContent = status.message || 'got it, thinking... 💭';
+        detailEl.textContent = '';
+        detailEl.style.display = 'none';
+        currentStatusEl.classList.remove('subagent-active');
+      } else if (status.type === 'subagent_start') {
+        // Subagent spawned - show special status
+        currentStatusEl.classList.add('subagent-active');
+        actionEl.textContent = status.message || 'spawning helpers 🚀';
+        if (status.toolInput) {
+          const countBadge = status.agentCount > 1 ? ` (${status.agentCount} active)` : '';
+          detailEl.textContent = status.toolInput + countBadge;
+          detailEl.title = status.toolInput;
+          detailEl.style.display = 'block';
+        } else {
+          detailEl.textContent = status.agentCount > 1 ? `${status.agentCount} helpers active` : '';
+          detailEl.style.display = status.agentCount > 1 ? 'block' : 'none';
+        }
+      } else if (status.type === 'subagent_update') {
+        // Multiple subagents, one finished
+        actionEl.textContent = status.message || `${status.agentCount} helpers working 🔄`;
+        detailEl.textContent = '';
+        detailEl.style.display = 'none';
+      } else if (status.type === 'subagent_end') {
+        // All subagents done
+        currentStatusEl.classList.remove('subagent-active');
+        actionEl.textContent = status.message || 'helpers done ✨';
         detailEl.textContent = '';
         detailEl.style.display = 'none';
       } else if (status.type === 'responding') {
-        actionEl.textContent = 'Composing response...';
+        actionEl.textContent = 'cooking up a response... 👨‍🍳';
         detailEl.textContent = '';
         detailEl.style.display = 'none';
+        currentStatusEl.classList.remove('subagent-active');
       }
 
       scrollToBottom();

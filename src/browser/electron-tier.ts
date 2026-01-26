@@ -10,6 +10,43 @@ import { BrowserAction, BrowserResult } from './types';
 import * as path from 'path';
 import * as fs from 'fs';
 
+// Default timeout for browser operations (15 seconds)
+const BROWSER_OP_TIMEOUT = 15000;
+
+/**
+ * Run a promise with timeout
+ */
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  operation: string
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`Browser operation "${operation}" timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timeoutId!);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId!);
+    throw error;
+  }
+}
+
+/**
+ * Log browser operation with timing
+ */
+function logBrowser(operation: string, data?: Record<string, unknown>): void {
+  const timestamp = new Date().toISOString();
+  const dataStr = data ? ` ${JSON.stringify(data)}` : '';
+  console.log(`🌐 [Browser ${timestamp}] ${operation}${dataStr}`);
+}
+
 export class ElectronTier {
   private window: BrowserWindow | null = null;
   private currentUrl: string = '';
@@ -71,26 +108,44 @@ export class ElectronTier {
    * Navigate to URL
    */
   async navigate(url: string, waitFor?: string | number): Promise<BrowserResult> {
+    const startTime = Date.now();
+    logBrowser('navigate START', { url });
+
     try {
       const webContents = await this.getWebContents();
 
-      await webContents.loadURL(url);
+      await withTimeout(
+        webContents.loadURL(url),
+        BROWSER_OP_TIMEOUT,
+        `loadURL(${url})`
+      );
       this.currentUrl = url;
 
       // Wait for condition if specified
       if (waitFor) {
         await this.waitFor(waitFor);
       } else {
-        // Default: wait for DOM content loaded
+        // Default: wait for DOM content loaded (with timeout)
         await new Promise<void>(resolve => {
           webContents.once('dom-ready', () => resolve());
-          // Timeout fallback
-          setTimeout(resolve, 5000);
+          // Shorter timeout fallback (3s instead of 5s)
+          setTimeout(resolve, 3000);
         });
       }
 
-      const title = await webContents.executeJavaScript('document.title');
-      const text = await this.getVisibleText();
+      const title = await withTimeout(
+        webContents.executeJavaScript('document.title'),
+        5000,
+        'get title'
+      );
+      const text = await withTimeout(
+        this.getVisibleText(),
+        5000,
+        'get visible text'
+      );
+
+      const duration = Date.now() - startTime;
+      logBrowser('navigate END', { url, duration: `${duration}ms` });
 
       return {
         success: true,
@@ -100,10 +155,14 @@ export class ElectronTier {
         text,
       };
     } catch (error) {
+      const duration = Date.now() - startTime;
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      logBrowser('navigate FAILED', { url, duration: `${duration}ms`, error: errorMsg });
+
       return {
         success: false,
         tier: 'electron',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: errorMsg,
       };
     }
   }
@@ -112,10 +171,14 @@ export class ElectronTier {
    * Take screenshot
    */
   async screenshot(): Promise<BrowserResult> {
+    const startTime = Date.now();
+    logBrowser('screenshot START', { url: this.currentUrl });
+
     try {
       const webContents = await this.getWebContents();
 
       if (!this.currentUrl) {
+        logBrowser('screenshot FAILED', { error: 'No page loaded' });
         return {
           success: false,
           tier: 'electron',
@@ -123,8 +186,15 @@ export class ElectronTier {
         };
       }
 
-      const image = await webContents.capturePage();
+      const image = await withTimeout(
+        webContents.capturePage(),
+        10000,
+        'capturePage'
+      );
       const base64 = image.toPNG().toString('base64');
+
+      const duration = Date.now() - startTime;
+      logBrowser('screenshot END', { duration: `${duration}ms`, size: base64.length });
 
       return {
         success: true,
@@ -133,10 +203,14 @@ export class ElectronTier {
         url: this.currentUrl,
       };
     } catch (error) {
+      const duration = Date.now() - startTime;
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      logBrowser('screenshot FAILED', { duration: `${duration}ms`, error: errorMsg });
+
       return {
         success: false,
         tier: 'electron',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: errorMsg,
       };
     }
   }

@@ -323,8 +323,15 @@ export async function handleBrowserTool(input: unknown): Promise<string> {
   if (result.data) response.data = result.data;
   if (result.html) response.html = result.html;
   if (result.screenshot) {
-    response.screenshot = `[base64 image, ${result.screenshot.length} chars]`;
-    response.screenshot_base64 = result.screenshot;
+    // Save screenshot to temp file instead of flooding response with base64
+    const fs = await import('fs');
+    const path = await import('path');
+    const os = await import('os');
+    const timestamp = Date.now();
+    const screenshotPath = path.join(os.tmpdir(), `pa-screenshot-${timestamp}.png`);
+    fs.writeFileSync(screenshotPath, Buffer.from(result.screenshot, 'base64'));
+    response.screenshot = `saved to ${screenshotPath}`;
+    response.screenshotSize = `${Math.round(result.screenshot.length / 1024)}KB`;
   }
   // New result fields
   if (result.downloadedFile) {

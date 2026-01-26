@@ -1,4 +1,4 @@
-import { app, Tray, Menu, nativeImage, BrowserWindow, ipcMain, Notification } from 'electron';
+import { app, Tray, Menu, nativeImage, BrowserWindow, ipcMain, Notification, globalShortcut } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { AgentManager } from '../agent';
@@ -8,6 +8,7 @@ import { createTelegramBot, getTelegramBot, TelegramBot } from '../channels/tele
 import { SettingsManager } from '../settings';
 import { loadIdentity, saveIdentity, getIdentityPath } from '../config/identity';
 import { loadInstructions, saveInstructions, getInstructionsPath } from '../config/instructions';
+import { closeTaskDb } from '../tools';
 import cityTimezones from 'city-timezones';
 
 // Month name mapping for birthday parsing
@@ -249,32 +250,54 @@ async function createTray(): Promise<void> {
 }
 
 function createDefaultIcon(): Electron.NativeImage {
-  // Create a simple 16x16 white circle icon for macOS menu bar
+  // Create a 16x16 robot face icon for macOS menu bar
   const size = 16;
   const canvas = Buffer.alloc(size * size * 4);
 
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const dx = x - size / 2;
-      const dy = y - size / 2;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+  // Helper to set a pixel white
+  const setPixel = (x: number, y: number) => {
+    if (x >= 0 && x < size && y >= 0 && y < size) {
       const i = (y * size + x) * 4;
+      canvas[i] = 255;     // R
+      canvas[i + 1] = 255; // G
+      canvas[i + 2] = 255; // B
+      canvas[i + 3] = 255; // A
+    }
+  };
 
-      if (dist < size / 2 - 1) {
-        // White circle
-        canvas[i] = 255;     // R
-        canvas[i + 1] = 255; // G
-        canvas[i + 2] = 255; // B
-        canvas[i + 3] = 255; // A
-      } else {
-        // Transparent
-        canvas[i] = 0;
-        canvas[i + 1] = 0;
-        canvas[i + 2] = 0;
-        canvas[i + 3] = 0;
+  // Helper to draw a filled rectangle
+  const fillRect = (x1: number, y1: number, x2: number, y2: number) => {
+    for (let y = y1; y <= y2; y++) {
+      for (let x = x1; x <= x2; x++) {
+        setPixel(x, y);
       }
     }
-  }
+  };
+
+  // Draw robot face (centered in 16x16)
+  // Head outline - rounded rectangle (rows 2-13, cols 3-12)
+  // Top edge
+  fillRect(4, 2, 11, 2);
+  // Bottom edge
+  fillRect(4, 13, 11, 13);
+  // Left edge
+  fillRect(3, 3, 3, 12);
+  // Right edge
+  fillRect(12, 3, 12, 12);
+  // Corners
+  setPixel(4, 3); setPixel(11, 3);
+  setPixel(4, 12); setPixel(11, 12);
+
+  // Antenna
+  setPixel(7, 0); setPixel(8, 0);
+  setPixel(7, 1); setPixel(8, 1);
+
+  // Eyes (2x2 squares)
+  fillRect(5, 5, 6, 7);   // Left eye
+  fillRect(9, 5, 10, 7);  // Right eye
+
+  // Mouth (horizontal line)
+  fillRect(5, 10, 10, 11);
 
   const icon = nativeImage.createFromBuffer(canvas, { width: size, height: size });
   icon.setTemplateImage(true); // For macOS menu bar
@@ -1123,6 +1146,17 @@ app.whenReady().then(async () => {
   setupIPC();
   await createTray();
 
+  // Register global shortcut (Option+Z on macOS, Alt+Z on Windows/Linux)
+  const shortcut = process.platform === 'darwin' ? 'Alt+Z' : 'Alt+Z';
+  const registered = globalShortcut.register(shortcut, () => {
+    openChatWindow();
+  });
+  if (registered) {
+    console.log(`[Main] Global shortcut ${shortcut} registered`);
+  } else {
+    console.warn(`[Main] Failed to register global shortcut ${shortcut}`);
+  }
+
   // Check for first run
   if (SettingsManager.isFirstRun()) {
     console.log('[Main] First run detected, showing setup wizard');
@@ -1140,10 +1174,12 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', async () => {
+  globalShortcut.unregisterAll(); // Clean up global shortcuts
   await stopAgent();
   if (memory) {
     memory.close();
   }
+  closeTaskDb(); // Clean up task tools database connection
   SettingsManager.close();
 });
 

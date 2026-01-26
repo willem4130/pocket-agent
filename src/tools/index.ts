@@ -21,11 +21,19 @@ import {
   getPtyExecToolDefinition,
   handlePtyExecTool,
 } from './macos';
+import { wrapToolHandler, getToolTimeout, logActiveToolsStatus } from './diagnostics';
+
+export { getActiveTools, logActiveToolsStatus } from './diagnostics';
+
+// Start periodic check for stuck tools (every 30 seconds)
+setInterval(() => {
+  logActiveToolsStatus();
+}, 30000);
 
 export { setMemoryManager } from './memory-tools';
 export { getSchedulerTools } from './scheduler-tools';
 export { getCalendarTools } from './calendar-tools';
-export { getTaskTools } from './task-tools';
+export { getTaskTools, closeTaskDb } from './task-tools';
 export { showNotification, execWithPty } from './macos';
 
 export interface MCPServerConfig {
@@ -121,6 +129,11 @@ export async function buildSdkMcpServers(
 
     const tools = [];
 
+    // Wrap handlers with diagnostics (timing, logging, timeouts)
+    const wrappedBrowserHandler = wrapToolHandler('browser', handleBrowserTool, getToolTimeout('browser'));
+    const wrappedNotifyHandler = wrapToolHandler('notify', handleNotifyTool, getToolTimeout('notify'));
+    const wrappedPtyExecHandler = wrapToolHandler('pty_exec', handlePtyExecTool, getToolTimeout('pty_exec'));
+
     // Browser tool (if enabled)
     if (config.browser.enabled) {
       const browserTool = tool(
@@ -158,7 +171,7 @@ export async function buildSdkMcpServers(
           wait_for: z.union([z.string(), z.number()]).optional(),
         },
         async (args) => {
-          const result = await handleBrowserTool(args);
+          const result = await wrappedBrowserHandler(args);
           return { content: [{ type: 'text', text: result }] };
         }
       );
@@ -177,7 +190,7 @@ export async function buildSdkMcpServers(
         urgency: z.enum(['low', 'normal', 'critical']).optional(),
       },
       async (args) => {
-        const result = await handleNotifyTool(args);
+        const result = await wrappedNotifyHandler(args);
         return { content: [{ type: 'text', text: result }] };
       }
     );
@@ -194,15 +207,16 @@ export async function buildSdkMcpServers(
         timeout: z.number().optional(),
       },
       async (args) => {
-        const result = await handlePtyExecTool(args);
+        const result = await wrappedPtyExecHandler(args);
         return { content: [{ type: 'text', text: result }] };
       }
     );
     tools.push(ptyExecTool);
 
-    // Memory tools
+    // Memory tools (with diagnostics wrapper)
     const memoryTools = getMemoryTools();
     for (const memTool of memoryTools) {
+      const wrappedHandler = wrapToolHandler(memTool.name, memTool.handler, getToolTimeout(memTool.name));
       const sdkTool = tool(
         memTool.name,
         memTool.description,
@@ -216,16 +230,17 @@ export async function buildSdkMcpServers(
           })
         ),
         async (args) => {
-          const result = await memTool.handler(args);
+          const result = await wrappedHandler(args);
           return { content: [{ type: 'text', text: result }] };
         }
       );
       tools.push(sdkTool);
     }
 
-    // Scheduler tools
+    // Scheduler tools (with diagnostics wrapper)
     const schedulerTools = getSchedulerTools();
     for (const schedTool of schedulerTools) {
+      const wrappedHandler = wrapToolHandler(schedTool.name, schedTool.handler, getToolTimeout(schedTool.name));
       const sdkTool = tool(
         schedTool.name,
         schedTool.description,
@@ -239,16 +254,17 @@ export async function buildSdkMcpServers(
           })
         ),
         async (args) => {
-          const result = await schedTool.handler(args);
+          const result = await wrappedHandler(args);
           return { content: [{ type: 'text', text: result }] };
         }
       );
       tools.push(sdkTool);
     }
 
-    // Calendar tools
+    // Calendar tools (with diagnostics wrapper)
     const calendarTools = getCalendarTools();
     for (const calTool of calendarTools) {
+      const wrappedHandler = wrapToolHandler(calTool.name, calTool.handler, getToolTimeout(calTool.name));
       const sdkTool = tool(
         calTool.name,
         calTool.description,
@@ -261,16 +277,17 @@ export async function buildSdkMcpServers(
           })
         ),
         async (args) => {
-          const result = await calTool.handler(args);
+          const result = await wrappedHandler(args);
           return { content: [{ type: 'text', text: result }] };
         }
       );
       tools.push(sdkTool);
     }
 
-    // Task tools
+    // Task tools (with diagnostics wrapper)
     const taskTools = getTaskTools();
     for (const taskTool of taskTools) {
+      const wrappedHandler = wrapToolHandler(taskTool.name, taskTool.handler, getToolTimeout(taskTool.name));
       const sdkTool = tool(
         taskTool.name,
         taskTool.description,
@@ -283,7 +300,7 @@ export async function buildSdkMcpServers(
           })
         ),
         async (args) => {
-          const result = await taskTool.handler(args);
+          const result = await wrappedHandler(args);
           return { content: [{ type: 'text', text: result }] };
         }
       );

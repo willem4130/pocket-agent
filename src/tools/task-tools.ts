@@ -2,11 +2,17 @@
  * Task/Todo tools for the agent
  *
  * MCP tools for managing tasks with priorities and due dates
+ *
+ * Uses a shared database connection to prevent SQLite locks
  */
 
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+
+// Shared database connection (singleton pattern to prevent locks)
+let sharedDb: Database.Database | null = null;
+let dbInitialized = false;
 
 function getDbPath(): string {
   const homeDir = process.env.HOME || process.env.USERPROFILE || '';
@@ -19,6 +25,52 @@ function getDbPath(): string {
     if (fs.existsSync(p)) return p;
   }
   return possiblePaths[0];
+}
+
+/**
+ * Get or create shared database connection
+ * Uses WAL mode for better concurrent access
+ */
+function getDb(): Database.Database {
+  if (sharedDb && !dbInitialized) {
+    // Connection exists but table not initialized
+    ensureTable(sharedDb);
+    dbInitialized = true;
+    return sharedDb;
+  }
+
+  if (sharedDb) {
+    return sharedDb;
+  }
+
+  const dbPath = getDbPath();
+  if (!fs.existsSync(dbPath)) {
+    throw new Error('Database not found. Start Pocket Agent first.');
+  }
+
+  console.log('[TaskTools] Opening shared database connection');
+  sharedDb = new Database(dbPath);
+
+  // Enable WAL mode for better concurrent access
+  sharedDb.pragma('journal_mode = WAL');
+  sharedDb.pragma('busy_timeout = 5000'); // Wait up to 5s if locked
+
+  ensureTable(sharedDb);
+  dbInitialized = true;
+
+  return sharedDb;
+}
+
+/**
+ * Close shared database connection (call on app shutdown)
+ */
+export function closeTaskDb(): void {
+  if (sharedDb) {
+    console.log('[TaskTools] Closing shared database connection');
+    sharedDb.close();
+    sharedDb = null;
+    dbInitialized = false;
+  }
 }
 
 function parseDateTime(input: string): string | null {
@@ -183,14 +235,8 @@ export async function handleTaskAddTool(input: unknown): Promise<string> {
 
   const channel = params.channel || 'desktop';
 
-  const dbPath = getDbPath();
-  if (!fs.existsSync(dbPath)) {
-    return JSON.stringify({ error: 'Database not found. Start Pocket Agent first.' });
-  }
-
-  const db = new Database(dbPath);
   try {
-    ensureTable(db);
+    const db = getDb();
 
     const result = db.prepare(`
       INSERT INTO tasks (title, description, due_date, priority, reminder_minutes, channel)
@@ -204,8 +250,10 @@ export async function handleTaskAddTool(input: unknown): Promise<string> {
       due: dueDate ? formatDateTime(dueDate) : null,
       priority,
     });
-  } finally {
-    db.close();
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[TaskTools] task_add failed:', errorMsg);
+    return JSON.stringify({ error: errorMsg });
   }
 }
 
@@ -238,14 +286,8 @@ export async function handleTaskListTool(input: unknown): Promise<string> {
   const params = input as { status?: string };
   const statusFilter = params.status || 'pending';
 
-  const dbPath = getDbPath();
-  if (!fs.existsSync(dbPath)) {
-    return JSON.stringify({ error: 'Database not found' });
-  }
-
-  const db = new Database(dbPath);
   try {
-    ensureTable(db);
+    const db = getDb();
 
     let query = 'SELECT * FROM tasks';
     const queryParams: string[] = [];
@@ -256,7 +298,7 @@ export async function handleTaskListTool(input: unknown): Promise<string> {
     }
 
     query +=
-      ' ORDER BY CASE priority WHEN "high" THEN 1 WHEN "medium" THEN 2 ELSE 3 END, due_date ASC NULLS LAST';
+      " ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, due_date ASC NULLS LAST";
 
     const tasks = db.prepare(query).all(...queryParams) as Array<{
       id: number;
@@ -279,8 +321,10 @@ export async function handleTaskListTool(input: unknown): Promise<string> {
         status: t.status,
       })),
     });
-  } finally {
-    db.close();
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[TaskTools] task_list failed:', errorMsg);
+    return JSON.stringify({ error: errorMsg });
   }
 }
 
@@ -309,14 +353,8 @@ export async function handleTaskCompleteTool(input: unknown): Promise<string> {
     return JSON.stringify({ error: 'id is required' });
   }
 
-  const dbPath = getDbPath();
-  if (!fs.existsSync(dbPath)) {
-    return JSON.stringify({ error: 'Database not found' });
-  }
-
-  const db = new Database(dbPath);
   try {
-    ensureTable(db);
+    const db = getDb();
 
     const result = db
       .prepare(`UPDATE tasks SET status = 'completed', updated_at = datetime('now') WHERE id = ?`)
@@ -327,8 +365,10 @@ export async function handleTaskCompleteTool(input: unknown): Promise<string> {
     } else {
       return JSON.stringify({ success: false, error: `Task ${params.id} not found` });
     }
-  } finally {
-    db.close();
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[TaskTools] task_complete failed:', errorMsg);
+    return JSON.stringify({ error: errorMsg });
   }
 }
 
@@ -357,14 +397,8 @@ export async function handleTaskDeleteTool(input: unknown): Promise<string> {
     return JSON.stringify({ error: 'id is required' });
   }
 
-  const dbPath = getDbPath();
-  if (!fs.existsSync(dbPath)) {
-    return JSON.stringify({ error: 'Database not found' });
-  }
-
-  const db = new Database(dbPath);
   try {
-    ensureTable(db);
+    const db = getDb();
 
     const result = db.prepare('DELETE FROM tasks WHERE id = ?').run(params.id);
     if (result.changes > 0) {
@@ -372,8 +406,10 @@ export async function handleTaskDeleteTool(input: unknown): Promise<string> {
     } else {
       return JSON.stringify({ success: false, error: `Task ${params.id} not found` });
     }
-  } finally {
-    db.close();
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[TaskTools] task_delete failed:', errorMsg);
+    return JSON.stringify({ error: errorMsg });
   }
 }
 
@@ -403,14 +439,8 @@ export async function handleTaskDueTool(input: unknown): Promise<string> {
   const params = input as { hours?: number };
   const hours = params.hours ?? 24;
 
-  const dbPath = getDbPath();
-  if (!fs.existsSync(dbPath)) {
-    return JSON.stringify({ error: 'Database not found' });
-  }
-
-  const db = new Database(dbPath);
   try {
-    ensureTable(db);
+    const db = getDb();
 
     const now = new Date();
     const later = new Date(now.getTime() + hours * 3600000);
@@ -446,8 +476,10 @@ export async function handleTaskDueTool(input: unknown): Promise<string> {
         priority: t.priority,
       })),
     });
-  } finally {
-    db.close();
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[TaskTools] task_due failed:', errorMsg);
+    return JSON.stringify({ error: errorMsg });
   }
 }
 

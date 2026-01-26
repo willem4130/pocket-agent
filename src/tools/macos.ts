@@ -34,6 +34,10 @@ export interface NotifyResult {
 
 /**
  * Show a native desktop notification
+ *
+ * Returns immediately after showing (fire-and-forget).
+ * Does NOT wait for user interaction since macOS notifications
+ * can sit in notification center indefinitely.
  */
 export function showNotification(input: NotifyInput): Promise<NotifyResult> {
   return new Promise(resolve => {
@@ -51,40 +55,17 @@ export function showNotification(input: NotifyInput): Promise<NotifyResult> {
         urgency: input.urgency || 'normal',
       });
 
-      let resolved = false;
-
-      notification.on('click', () => {
-        if (!resolved) {
-          resolved = true;
-          resolve({ success: true, clicked: true });
-        }
-      });
-
-      notification.on('close', () => {
-        if (!resolved) {
-          resolved = true;
-          resolve({ success: true, clicked: false });
-        }
-      });
-
+      // Listen for errors only (don't block on click/close)
       notification.on('failed', (_event, error) => {
-        if (!resolved) {
-          resolved = true;
-          resolve({ success: false, error });
-        }
+        console.error('[Notify] Notification failed:', error);
       });
 
       notification.show();
 
-      // Auto-resolve after timeout if specified
-      if (input.timeout && input.timeout > 0) {
-        setTimeout(() => {
-          if (!resolved) {
-            resolved = true;
-            resolve({ success: true, clicked: false });
-          }
-        }, input.timeout);
-      }
+      // Resolve immediately - don't wait for user interaction
+      // macOS notifications can stay in notification center forever
+      resolve({ success: true });
+
     } catch (error) {
       resolve({
         success: false,
@@ -346,12 +327,23 @@ async function execWithSpawn(input: PtyExecInput): Promise<PtyExecResult> {
 function cleanPtyOutput(output: string): string {
   return (
     output
-      // Remove ANSI escape codes
+      // Remove ANSI escape codes (colors, cursor movement, etc.)
       // eslint-disable-next-line no-control-regex
       .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
+      // Remove bracketed paste mode codes [?2004h and [?2004l
+      // eslint-disable-next-line no-control-regex
+      .replace(/\x1b\[\?[0-9]+[hl]/g, '')
+      // Remove OSC sequences (title changes, etc.)
+      // eslint-disable-next-line no-control-regex
+      .replace(/\x1b\][^\x07]*\x07/g, '')
+      // Remove any remaining escape sequences
+      // eslint-disable-next-line no-control-regex
+      .replace(/\x1b[^m]*m/g, '')
       // Remove carriage returns
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n')
+      // Remove literal escape code representations that might slip through
+      .replace(/\[(\?)?[0-9]+[hlm]/g, '')
       // Trim excessive whitespace
       .trim()
   );
