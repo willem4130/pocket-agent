@@ -313,7 +313,30 @@ export async function handleScheduleTaskTool(input: unknown): Promise<string> {
 
     // Auto-enable delete-after for one-time "at" jobs
     const deleteAfterRun = parsed.type === 'at' ? 1 : 0;
-    const targetChannel = channel || 'desktop';
+
+    // Determine default channel: use telegram if configured, otherwise desktop
+    let targetChannel = channel;
+    if (!targetChannel) {
+      // Check if Telegram is configured by looking for activeChatIds in settings
+      const telegramSetting = db.prepare(
+        "SELECT value FROM settings WHERE key = 'telegram.activeChatIds'"
+      ).get() as { value: string } | undefined;
+
+      if (telegramSetting?.value) {
+        try {
+          const chatIds = JSON.parse(telegramSetting.value);
+          if (Array.isArray(chatIds) && chatIds.length > 0) {
+            targetChannel = 'telegram';
+          }
+        } catch {
+          // Invalid JSON, fall through to desktop
+        }
+      }
+
+      if (!targetChannel) {
+        targetChannel = 'desktop';
+      }
+    }
 
     const nextRunAt = calculateNextRun(
       parsed.type,

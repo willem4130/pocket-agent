@@ -1438,53 +1438,67 @@ async function restartAgent(): Promise<void> {
 // ============ App Lifecycle ============
 
 app.whenReady().then(async () => {
-  // Set Dock icon on macOS
-  if (process.platform === 'darwin') {
-    const dockIconPath = path.join(__dirname, '../../assets/icon.png');
-    if (fs.existsSync(dockIconPath)) {
-      app.dock?.setIcon(dockIconPath);
+  console.log('[Main] App ready, starting initialization...');
+
+  try {
+    // Set Dock icon on macOS
+    if (process.platform === 'darwin') {
+      const dockIconPath = path.join(__dirname, '../../assets/icon.png');
+      if (fs.existsSync(dockIconPath)) {
+        app.dock?.setIcon(dockIconPath);
+      }
     }
+
+    const userDataPath = app.getPath('userData');
+    const dbPath = path.join(userDataPath, 'pocket-agent.db');
+    console.log('[Main] DB path:', dbPath);
+
+    // Initialize settings first (uses same DB)
+    console.log('[Main] Initializing settings...');
+    SettingsManager.initialize(dbPath);
+
+    // Migrate from old config.json if it exists
+    const oldConfigPath = path.join(userDataPath, 'config.json');
+    await SettingsManager.migrateFromConfig(oldConfigPath);
+    console.log('[Main] Settings initialized');
+
+    // Initialize memory (shared with settings)
+    console.log('[Main] Initializing memory...');
+    memory = new MemoryManager(dbPath);
+    console.log('[Main] Memory initialized');
+
+    setupIPC();
+    console.log('[Main] Creating tray...');
+    await createTray();
+    console.log('[Main] Tray created');
+
+    // Register global shortcut (Option+Z on macOS, Alt+Z on Windows/Linux)
+    const shortcut = process.platform === 'darwin' ? 'Alt+Z' : 'Alt+Z';
+    const registered = globalShortcut.register(shortcut, () => {
+      openChatWindow();
+    });
+    if (registered) {
+      console.log(`[Main] Global shortcut ${shortcut} registered`);
+    } else {
+      console.warn(`[Main] Failed to register global shortcut ${shortcut}`);
+    }
+
+    // Check for first run
+    if (SettingsManager.isFirstRun()) {
+      console.log('[Main] First run detected, showing setup wizard');
+      openSetupWindow();
+    } else {
+      console.log('[Main] Initializing agent...');
+      await initializeAgent();
+      // Open chat window on launch so users see the app
+      openChatWindow();
+    }
+
+    // Periodic tray update
+    setInterval(updateTrayMenu, 30000);
+  } catch (error) {
+    console.error('[Main] FATAL ERROR during initialization:', error);
   }
-
-  const userDataPath = app.getPath('userData');
-  const dbPath = path.join(userDataPath, 'pocket-agent.db');
-
-  // Initialize settings first (uses same DB)
-  SettingsManager.initialize(dbPath);
-
-  // Migrate from old config.json if it exists
-  const oldConfigPath = path.join(userDataPath, 'config.json');
-  await SettingsManager.migrateFromConfig(oldConfigPath);
-
-  // Initialize memory (shared with settings)
-  memory = new MemoryManager(dbPath);
-
-  setupIPC();
-  await createTray();
-
-  // Register global shortcut (Option+Z on macOS, Alt+Z on Windows/Linux)
-  const shortcut = process.platform === 'darwin' ? 'Alt+Z' : 'Alt+Z';
-  const registered = globalShortcut.register(shortcut, () => {
-    openChatWindow();
-  });
-  if (registered) {
-    console.log(`[Main] Global shortcut ${shortcut} registered`);
-  } else {
-    console.warn(`[Main] Failed to register global shortcut ${shortcut}`);
-  }
-
-  // Check for first run
-  if (SettingsManager.isFirstRun()) {
-    console.log('[Main] First run detected, showing setup wizard');
-    openSetupWindow();
-  } else {
-    await initializeAgent();
-    // Open chat window on launch so users see the app
-    openChatWindow();
-  }
-
-  // Periodic tray update
-  setInterval(updateTrayMenu, 30000);
 });
 
 app.on('window-all-closed', () => {

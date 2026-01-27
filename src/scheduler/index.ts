@@ -379,8 +379,9 @@ export class CronScheduler {
   }
 
   /**
-   * Route job response to appropriate channel.
+   * Route job response to appropriate channel(s).
    * Skips notification if response is just HEARTBEAT_OK (nothing to report).
+   * Always sends to desktop, and also to Telegram if configured.
    */
   private async routeJobResponse(jobName: string, prompt: string, response: string, channel: string): Promise<void> {
     // Check for silent acknowledgment - agent has nothing to report
@@ -390,36 +391,39 @@ export class CronScheduler {
       return;
     }
 
+    // Always send to desktop (notification + chat)
+    const plainResponse = this.stripMarkdown(response);
+    if (this.onNotification) {
+      this.onNotification('Pocket Agent', plainResponse.slice(0, 200));
+    }
+    if (this.onChatMessage) {
+      this.onChatMessage(jobName, prompt, response);
+    }
+
+    // Also send to Telegram if configured
     if (channel === 'telegram' && this.telegramBot) {
       await this.telegramBot.broadcast(`📅 ${jobName}\n\n${response}`);
-    } else {
-      // Desktop: notification + chat
-      const plainResponse = this.stripMarkdown(response);
-      if (this.onNotification) {
-        this.onNotification('Pocket Agent', plainResponse.slice(0, 200));
-      }
-      if (this.onChatMessage) {
-        this.onChatMessage(jobName, prompt, response);
-      }
     }
   }
 
   /**
-   * Send a reminder notification
+   * Send a reminder notification.
+   * Always sends to desktop, and also to Telegram if configured.
    */
   private async sendReminder(type: 'calendar' | 'task', title: string, message: string, channel: string): Promise<void> {
     console.log(`[Scheduler] Sending ${type} reminder: ${title}`);
 
+    // Always send to desktop (notification + chat)
+    if (this.onNotification) {
+      this.onNotification('Pocket Agent', message);
+    }
+    if (this.onChatMessage) {
+      this.onChatMessage(`${type}_reminder`, message, message);
+    }
+
+    // Also send to Telegram if configured
     if (channel === 'telegram' && this.telegramBot) {
       await this.telegramBot.broadcast(`${type === 'calendar' ? '📅' : '✓'} ${message}`);
-    } else {
-      // Desktop notification + chat
-      if (this.onNotification) {
-        this.onNotification('Pocket Agent', message);
-      }
-      if (this.onChatMessage) {
-        this.onChatMessage(`${type}_reminder`, message, message);
-      }
     }
 
     // Log to history
