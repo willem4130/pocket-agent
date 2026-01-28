@@ -561,7 +561,9 @@ function openChatWindow(): void {
     return;
   }
 
-  chatWindow = new BrowserWindow({
+  // Load saved window bounds
+  const savedBoundsJson = SettingsManager.get('window.chatBounds');
+  let windowOptions: Electron.BrowserWindowConstructorOptions = {
     width: 600,
     height: 800,
     title: 'Pocket Agent',
@@ -572,13 +574,41 @@ function openChatWindow(): void {
       nodeIntegration: false,
     },
     show: false,
-  });
+  };
+
+  // Apply saved bounds if available
+  if (savedBoundsJson) {
+    try {
+      const savedBounds = JSON.parse(savedBoundsJson);
+      if (savedBounds.x !== undefined) windowOptions.x = savedBounds.x;
+      if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
+      if (savedBounds.width) windowOptions.width = savedBounds.width;
+      if (savedBounds.height) windowOptions.height = savedBounds.height;
+      console.log('[Main] Restored chat window bounds:', savedBounds);
+    } catch {
+      console.warn('[Main] Failed to parse saved window bounds');
+    }
+  }
+
+  chatWindow = new BrowserWindow(windowOptions);
 
   chatWindow.loadFile(path.join(__dirname, '../../ui/chat.html'));
 
   chatWindow.once('ready-to-show', () => {
     chatWindow?.show();
   });
+
+  // Save window bounds when moved, resized, or closed
+  const saveBounds = () => {
+    if (chatWindow && !chatWindow.isDestroyed()) {
+      const bounds = chatWindow.getBounds();
+      SettingsManager.set('window.chatBounds', JSON.stringify(bounds));
+    }
+  };
+
+  chatWindow.on('moved', saveBounds);
+  chatWindow.on('resized', saveBounds);
+  chatWindow.on('close', saveBounds);
 
   chatWindow.on('closed', () => {
     chatWindow = null;
@@ -591,7 +621,8 @@ function openCronWindow(): void {
     return;
   }
 
-  cronWindow = new BrowserWindow({
+  const savedBoundsJson = SettingsManager.get('window.cronBounds');
+  let windowOptions: Electron.BrowserWindowConstructorOptions = {
     width: 700,
     height: 500,
     title: 'My Routines - Pocket Agent',
@@ -602,13 +633,34 @@ function openCronWindow(): void {
       nodeIntegration: false,
     },
     show: false,
-  });
+  };
+
+  if (savedBoundsJson) {
+    try {
+      const savedBounds = JSON.parse(savedBoundsJson);
+      if (savedBounds.x !== undefined) windowOptions.x = savedBounds.x;
+      if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
+      if (savedBounds.width) windowOptions.width = savedBounds.width;
+      if (savedBounds.height) windowOptions.height = savedBounds.height;
+    } catch { /* ignore */ }
+  }
+
+  cronWindow = new BrowserWindow(windowOptions);
 
   cronWindow.loadFile(path.join(__dirname, '../../ui/cron.html'));
 
   cronWindow.once('ready-to-show', () => {
     cronWindow?.show();
   });
+
+  const saveBounds = () => {
+    if (cronWindow && !cronWindow.isDestroyed()) {
+      SettingsManager.set('window.cronBounds', JSON.stringify(cronWindow.getBounds()));
+    }
+  };
+  cronWindow.on('moved', saveBounds);
+  cronWindow.on('resized', saveBounds);
+  cronWindow.on('close', saveBounds);
 
   cronWindow.on('closed', () => {
     cronWindow = null;
@@ -621,7 +673,8 @@ function openSettingsWindow(): void {
     return;
   }
 
-  settingsWindow = new BrowserWindow({
+  const savedBoundsJson = SettingsManager.get('window.settingsBounds');
+  let windowOptions: Electron.BrowserWindowConstructorOptions = {
     width: 700,
     height: 600,
     title: 'Tweaks - Pocket Agent',
@@ -632,13 +685,34 @@ function openSettingsWindow(): void {
       nodeIntegration: false,
     },
     show: false,
-  });
+  };
+
+  if (savedBoundsJson) {
+    try {
+      const savedBounds = JSON.parse(savedBoundsJson);
+      if (savedBounds.x !== undefined) windowOptions.x = savedBounds.x;
+      if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
+      if (savedBounds.width) windowOptions.width = savedBounds.width;
+      if (savedBounds.height) windowOptions.height = savedBounds.height;
+    } catch { /* ignore */ }
+  }
+
+  settingsWindow = new BrowserWindow(windowOptions);
 
   settingsWindow.loadFile(path.join(__dirname, '../../ui/settings.html'));
 
   settingsWindow.once('ready-to-show', () => {
     settingsWindow?.show();
   });
+
+  const saveBounds = () => {
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      SettingsManager.set('window.settingsBounds', JSON.stringify(settingsWindow.getBounds()));
+    }
+  };
+  settingsWindow.on('moved', saveBounds);
+  settingsWindow.on('resized', saveBounds);
+  settingsWindow.on('close', saveBounds);
 
   settingsWindow.on('closed', () => {
     settingsWindow = null;
@@ -688,7 +762,8 @@ function openFactsGraphWindow(): void {
     return;
   }
 
-  factsGraphWindow = new BrowserWindow({
+  const savedBoundsJson = SettingsManager.get('window.factsGraphBounds');
+  let windowOptions: Electron.BrowserWindowConstructorOptions = {
     width: 900,
     height: 700,
     title: 'Mind Map - Pocket Agent',
@@ -699,13 +774,34 @@ function openFactsGraphWindow(): void {
       nodeIntegration: false,
     },
     show: false,
-  });
+  };
+
+  if (savedBoundsJson) {
+    try {
+      const savedBounds = JSON.parse(savedBoundsJson);
+      if (savedBounds.x !== undefined) windowOptions.x = savedBounds.x;
+      if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
+      if (savedBounds.width) windowOptions.width = savedBounds.width;
+      if (savedBounds.height) windowOptions.height = savedBounds.height;
+    } catch { /* ignore */ }
+  }
+
+  factsGraphWindow = new BrowserWindow(windowOptions);
 
   factsGraphWindow.loadFile(path.join(__dirname, '../../ui/facts-graph.html'));
 
   factsGraphWindow.once('ready-to-show', () => {
     factsGraphWindow?.show();
   });
+
+  const saveBounds = () => {
+    if (factsGraphWindow && !factsGraphWindow.isDestroyed()) {
+      SettingsManager.set('window.factsGraphBounds', JSON.stringify(factsGraphWindow.getBounds()));
+    }
+  };
+  factsGraphWindow.on('moved', saveBounds);
+  factsGraphWindow.on('resized', saveBounds);
+  factsGraphWindow.on('close', saveBounds);
 
   factsGraphWindow.on('closed', () => {
     factsGraphWindow = null;
@@ -718,7 +814,8 @@ function openCustomizeWindow(): void {
     return;
   }
 
-  customizeWindow = new BrowserWindow({
+  const savedBoundsJson = SettingsManager.get('window.customizeBounds');
+  let windowOptions: Electron.BrowserWindowConstructorOptions = {
     width: 800,
     height: 650,
     title: 'Make It Yours - Pocket Agent',
@@ -729,13 +826,34 @@ function openCustomizeWindow(): void {
       nodeIntegration: false,
     },
     show: false,
-  });
+  };
+
+  if (savedBoundsJson) {
+    try {
+      const savedBounds = JSON.parse(savedBoundsJson);
+      if (savedBounds.x !== undefined) windowOptions.x = savedBounds.x;
+      if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
+      if (savedBounds.width) windowOptions.width = savedBounds.width;
+      if (savedBounds.height) windowOptions.height = savedBounds.height;
+    } catch { /* ignore */ }
+  }
+
+  customizeWindow = new BrowserWindow(windowOptions);
 
   customizeWindow.loadFile(path.join(__dirname, '../../ui/customize.html'));
 
   customizeWindow.once('ready-to-show', () => {
     customizeWindow?.show();
   });
+
+  const saveBounds = () => {
+    if (customizeWindow && !customizeWindow.isDestroyed()) {
+      SettingsManager.set('window.customizeBounds', JSON.stringify(customizeWindow.getBounds()));
+    }
+  };
+  customizeWindow.on('moved', saveBounds);
+  customizeWindow.on('resized', saveBounds);
+  customizeWindow.on('close', saveBounds);
 
   customizeWindow.on('closed', () => {
     customizeWindow = null;
@@ -748,7 +866,8 @@ function openFactsWindow(): void {
     return;
   }
 
-  factsWindow = new BrowserWindow({
+  const savedBoundsJson = SettingsManager.get('window.factsBounds');
+  let windowOptions: Electron.BrowserWindowConstructorOptions = {
     width: 700,
     height: 550,
     title: 'My Brain - Pocket Agent',
@@ -759,13 +878,34 @@ function openFactsWindow(): void {
       nodeIntegration: false,
     },
     show: false,
-  });
+  };
+
+  if (savedBoundsJson) {
+    try {
+      const savedBounds = JSON.parse(savedBoundsJson);
+      if (savedBounds.x !== undefined) windowOptions.x = savedBounds.x;
+      if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
+      if (savedBounds.width) windowOptions.width = savedBounds.width;
+      if (savedBounds.height) windowOptions.height = savedBounds.height;
+    } catch { /* ignore */ }
+  }
+
+  factsWindow = new BrowserWindow(windowOptions);
 
   factsWindow.loadFile(path.join(__dirname, '../../ui/facts.html'));
 
   factsWindow.once('ready-to-show', () => {
     factsWindow?.show();
   });
+
+  const saveBounds = () => {
+    if (factsWindow && !factsWindow.isDestroyed()) {
+      SettingsManager.set('window.factsBounds', JSON.stringify(factsWindow.getBounds()));
+    }
+  };
+  factsWindow.on('moved', saveBounds);
+  factsWindow.on('resized', saveBounds);
+  factsWindow.on('close', saveBounds);
 
   factsWindow.on('closed', () => {
     factsWindow = null;
@@ -778,7 +918,8 @@ function createSkillsSetupWindow(): void {
     return;
   }
 
-  skillsSetupWindow = new BrowserWindow({
+  const savedBoundsJson = SettingsManager.get('window.skillsSetupBounds');
+  let windowOptions: Electron.BrowserWindowConstructorOptions = {
     width: 900,
     height: 700,
     title: 'Superpowers - Pocket Agent',
@@ -789,13 +930,34 @@ function createSkillsSetupWindow(): void {
       nodeIntegration: false,
     },
     show: false,
-  });
+  };
+
+  if (savedBoundsJson) {
+    try {
+      const savedBounds = JSON.parse(savedBoundsJson);
+      if (savedBounds.x !== undefined) windowOptions.x = savedBounds.x;
+      if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
+      if (savedBounds.width) windowOptions.width = savedBounds.width;
+      if (savedBounds.height) windowOptions.height = savedBounds.height;
+    } catch { /* ignore */ }
+  }
+
+  skillsSetupWindow = new BrowserWindow(windowOptions);
 
   skillsSetupWindow.loadFile(path.join(__dirname, '../../ui/skills-setup.html'));
 
   skillsSetupWindow.once('ready-to-show', () => {
     skillsSetupWindow?.show();
   });
+
+  const saveBounds = () => {
+    if (skillsSetupWindow && !skillsSetupWindow.isDestroyed()) {
+      SettingsManager.set('window.skillsSetupBounds', JSON.stringify(skillsSetupWindow.getBounds()));
+    }
+  };
+  skillsSetupWindow.on('moved', saveBounds);
+  skillsSetupWindow.on('resized', saveBounds);
+  skillsSetupWindow.on('close', saveBounds);
 
   skillsSetupWindow.on('closed', () => {
     skillsSetupWindow = null;

@@ -5,17 +5,30 @@
  */
 
 const { execSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
-try {
-  // Try to load better-sqlite3 with Electron's Node
-  const electronPath = path.join(__dirname, '../node_modules/.bin/electron');
+const testScript = path.join(__dirname, '_test-sqlite.cjs');
 
-  // Quick check: try to require better-sqlite3 in Electron context
-  const result = execSync(
-    `${electronPath} -e "try { require('better-sqlite3'); process.exit(0); } catch(e) { console.error(e.message); process.exit(1); }"`,
-    { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000 }
-  );
+try {
+  // Create a temporary test script
+  fs.writeFileSync(testScript, `
+    try {
+      require('better-sqlite3');
+      process.exit(0);
+    } catch(e) {
+      console.error(e.message);
+      process.exit(1);
+    }
+  `);
+
+  // Run it with Electron
+  const electronPath = path.join(__dirname, '../node_modules/.bin/electron');
+  execSync(`${electronPath} ${testScript}`, {
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    timeout: 10000
+  });
 
   console.log('[check-native] better-sqlite3 OK');
 } catch (error) {
@@ -38,4 +51,9 @@ try {
     // Some other error, might be fine
     console.log('[check-native] Check inconclusive, continuing...');
   }
+} finally {
+  // Clean up test script
+  try {
+    fs.unlinkSync(testScript);
+  } catch {}
 }

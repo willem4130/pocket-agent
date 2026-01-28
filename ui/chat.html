@@ -1256,6 +1256,7 @@
     const ghostSuggestion = document.getElementById('ghost-suggestion');
 
     // Session state
+    const MAX_TABS = 5;
     let sessions = [];
     let currentSessionId = 'default';
     const tabsContainer = document.getElementById('tabs-container');
@@ -1398,6 +1399,9 @@
 
         tabsContainer.insertBefore(tab, newTabBtn);
       });
+
+      // Hide new tab button when at max capacity
+      newTabBtn.style.display = sessions.length >= MAX_TABS ? 'none' : '';
     }
 
     function updateSessionsOrder() {
@@ -1432,8 +1436,13 @@
     }
 
     async function createNewSession() {
+      // Check tab limit
+      if (sessions.length >= MAX_TABS) {
+        return;
+      }
+
       try {
-        const session = await window.pocketAgent.createSession('New Chat');
+        const session = await window.pocketAgent.createSession('New');
         sessions.push(session); // Add to end (right side)
         currentSessionId = session.id;
         renderTabs();
@@ -1459,6 +1468,13 @@
       input.type = 'text';
       input.className = 'tab-name-input';
       input.value = currentName;
+      input.maxLength = 10;
+
+      // Sanitize input: single word only (no spaces), max 10 chars
+      input.oninput = () => {
+        // Remove spaces and limit to 10 chars
+        input.value = input.value.replace(/\s/g, '').slice(0, 10);
+      };
 
       input.onblur = () => finishRename(sessionId, input.value);
       input.onkeydown = (e) => {
@@ -1468,6 +1484,9 @@
         } else if (e.key === 'Escape') {
           input.value = currentName;
           input.blur();
+        } else if (e.key === ' ') {
+          // Prevent space key
+          e.preventDefault();
         }
       };
 
@@ -1477,14 +1496,15 @@
     }
 
     async function finishRename(sessionId, newName) {
-      const trimmedName = newName.trim() || 'Untitled';
+      // Sanitize: remove spaces, limit to 10 chars, fallback to 'Untitled'
+      const sanitizedName = newName.replace(/\s/g, '').slice(0, 10) || 'Untitled';
 
       try {
-        await window.pocketAgent.renameSession(sessionId, trimmedName);
+        await window.pocketAgent.renameSession(sessionId, sanitizedName);
         // Update local state
         const session = sessions.find(s => s.id === sessionId);
         if (session) {
-          session.name = trimmedName;
+          session.name = sanitizedName;
         }
         renderTabs();
       } catch (err) {
