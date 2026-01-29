@@ -1,6 +1,6 @@
 {
   "name": "pocket-agent",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Desktop AI agent with persistent memory powered by Claude Agent SDK",
   "main": "dist/main/index.js",
   "scripts": {
