@@ -683,7 +683,7 @@
     .toast-message {
       color: var(--text-primary);
       line-height: 1.4;
-      white-space: nowrap;
+      word-wrap: break-word;
     }
 
     .toast.exiting {
@@ -1245,19 +1245,77 @@
       <!-- Browser Section -->
       <section id="browser" class="section">
         <h2 class="section-title">Browser Magic</h2>
-        <p class="section-desc">Let me browse the web and click around for you!</p>
+        <p class="section-desc">Control your browser to browse, click, fill forms, and more!</p>
+
+        <!-- Capability info -->
+        <div class="info-box" style="margin-bottom: 16px; padding: 12px; background: var(--bg-tertiary); border-radius: var(--radius-sm); border: 1px solid var(--border);">
+          <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <span style="font-size: 16px;">🌐</span>
+            <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.5;">
+              <strong style="color: var(--text-primary);">What this enables:</strong><br>
+              Navigate websites, click buttons, fill forms, take screenshots, and interact with your logged-in accounts. The AI controls your real browser session.
+            </div>
+          </div>
+        </div>
 
         <div class="settings-grid">
           <div class="setting-row">
             <label>Enable Browser</label>
             <div class="toggle" id="browser.enabled-toggle" onclick="playNormalClick(); toggleSetting('browser.enabled')"></div>
           </div>
+          <div class="setting-row">
+            <label>Use My Browser</label>
+            <div class="toggle" id="browser.useMyBrowser-toggle" onclick="playNormalClick(); toggleSetting('browser.useMyBrowser')"></div>
+          </div>
         </div>
 
-        <div class="settings-grid" id="browser-config" style="margin-top: 10px;">
+        <div class="settings-grid" id="browser-config" style="margin-top: 12px;">
           <div class="setting-row">
-            <label>CDP URL</label>
-            <input type="text" id="browser.cdpUrl" placeholder="http://localhost:9222" style="width: 180px;">
+            <label>Browser</label>
+            <select id="browser-selector" style="width: 140px;">
+              <option value="">Select browser...</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <label>Launch</label>
+            <button id="browser-launch-btn" onclick="playNormalClick(); launchBrowserWithCdp()" class="skills-setup-btn" style="margin: 0; width: 140px;">
+              Launch Browser
+            </button>
+          </div>
+          <div class="setting-row">
+            <label>Status</label>
+            <div id="browser-status" class="status info" style="margin: 0;">Not connected</div>
+          </div>
+          <div class="setting-row">
+            <label>Connection</label>
+            <button id="browser-test-btn" onclick="playNormalClick(); testBrowserConnection()" class="skills-setup-btn" style="margin: 0; width: 140px;">
+              Test Connection
+            </button>
+          </div>
+        </div>
+
+        <!-- Advanced settings (collapsed by default) -->
+        <details style="margin-top: 16px;">
+          <summary style="cursor: pointer; font-size: 11px; color: var(--text-muted); user-select: none;">Advanced settings</summary>
+          <div class="settings-grid" style="margin-top: 10px;">
+            <div class="setting-row">
+              <label>CDP URL</label>
+              <input type="text" id="browser.cdpUrl" placeholder="http://localhost:9222" style="width: 180px;">
+            </div>
+            <div class="setting-row">
+              <label>Port</label>
+              <input type="number" id="browser-port" value="9222" min="1024" max="65535" style="width: 80px;">
+            </div>
+          </div>
+        </details>
+
+        <!-- Warning box -->
+        <div class="info-box" style="margin-top: 16px; padding: 10px; background: rgba(249, 115, 22, 0.1); border-radius: var(--radius-sm); border: 1px solid rgba(249, 115, 22, 0.3);">
+          <div style="display: flex; align-items: flex-start; gap: 8px;">
+            <span style="font-size: 12px;">⚠️</span>
+            <div style="font-size: 10px; color: var(--text-secondary); line-height: 1.4;">
+              The AI can access your logged-in accounts and perform actions. Some actions may be irreversible.
+            </div>
           </div>
         </div>
       </section>
@@ -1367,6 +1425,7 @@
       setupNavigation();
       setupAutoSave();
       loadSkillsSummary();
+      initializeBrowserSection();
     });
 
     async function loadAppVersion() {
@@ -1501,6 +1560,11 @@
       const browserEnabled = settings['browser.enabled'] === 'true';
       browserToggle.classList.toggle('active', browserEnabled);
       document.getElementById('browser-config').style.opacity = browserEnabled ? '1' : '0.5';
+
+      // Use My Browser toggle
+      const useMyBrowserToggle = document.getElementById('browser.useMyBrowser-toggle');
+      const useMyBrowser = settings['browser.useMyBrowser'] === 'true';
+      useMyBrowserToggle.classList.toggle('active', useMyBrowser);
 
       // Updates auto-check toggle (defaults to true)
       const updatesToggle = document.getElementById('updates.autoCheck-toggle');
@@ -2188,6 +2252,126 @@
         await window.pocketAgent.openSkillsSetup();
       } catch (err) {
         showToast('Failed to open Skills Setup: ' + err.message, 'error');
+      }
+    }
+
+    // Browser control functions
+    async function initializeBrowserSection() {
+      const selector = document.getElementById('browser-selector');
+      const statusEl = document.getElementById('browser-status');
+
+      try {
+        // Detect installed browsers
+        const browsers = await window.pocketAgent.detectInstalledBrowsers();
+
+        // Clear and populate selector
+        selector.innerHTML = '<option value="">Select browser...</option>';
+        browsers.forEach(browser => {
+          const option = document.createElement('option');
+          option.value = browser.id;
+          option.textContent = browser.name;
+          selector.appendChild(option);
+        });
+
+        // Auto-select first browser if only one
+        if (browsers.length === 1) {
+          selector.value = browsers[0].id;
+        }
+
+        // Test current connection
+        await testBrowserConnection();
+      } catch (err) {
+        console.error('Failed to initialize browser section:', err);
+        statusEl.className = 'status error';
+        statusEl.textContent = 'Error loading';
+      }
+    }
+
+    async function launchBrowserWithCdp() {
+      const selector = document.getElementById('browser-selector');
+      const statusEl = document.getElementById('browser-status');
+      const launchBtn = document.getElementById('browser-launch-btn');
+      const portInput = document.getElementById('browser-port');
+
+      const browserId = selector.value;
+      if (!browserId) {
+        showToast('Please select a browser first', 'error');
+        return;
+      }
+
+      const port = parseInt(portInput.value) || 9222;
+
+      // Update UI
+      launchBtn.disabled = true;
+      launchBtn.textContent = 'Launching...';
+      statusEl.className = 'status info';
+      statusEl.textContent = 'Launching...';
+
+      try {
+        const result = await window.pocketAgent.launchBrowser(browserId, port);
+
+        if (result.success) {
+          statusEl.className = 'status success';
+          statusEl.textContent = 'Connected';
+          showToast('Browser launched with remote debugging enabled!', 'success');
+
+          // Update CDP URL to match port
+          const cdpInput = document.getElementById('browser.cdpUrl');
+          cdpInput.value = `http://localhost:${port}`;
+          await window.pocketAgent.setSetting('browser.cdpUrl', cdpInput.value);
+        } else if (result.alreadyRunning) {
+          statusEl.className = 'status warning';
+          statusEl.textContent = 'Browser running';
+          showToast(result.error, 'error');
+        } else {
+          statusEl.className = 'status error';
+          statusEl.textContent = 'Launch failed';
+          showToast(result.error || 'Failed to launch browser', 'error');
+        }
+      } catch (err) {
+        statusEl.className = 'status error';
+        statusEl.textContent = 'Error';
+        showToast('Error: ' + err.message, 'error');
+      } finally {
+        launchBtn.disabled = false;
+        launchBtn.textContent = 'Launch Browser';
+      }
+    }
+
+    async function testBrowserConnection() {
+      const statusEl = document.getElementById('browser-status');
+      const testBtn = document.getElementById('browser-test-btn');
+      const cdpInput = document.getElementById('browser.cdpUrl');
+
+      const cdpUrl = cdpInput.value || 'http://localhost:9222';
+
+      testBtn.disabled = true;
+      testBtn.textContent = 'Testing...';
+      statusEl.className = 'status info';
+      statusEl.textContent = 'Testing...';
+
+      try {
+        const result = await window.pocketAgent.testBrowserConnection(cdpUrl);
+
+        if (result.connected) {
+          statusEl.className = 'status success';
+          statusEl.textContent = 'Connected';
+
+          // Show browser info if available
+          if (result.browserInfo && result.browserInfo.Browser) {
+            const browserName = result.browserInfo.Browser.split('/')[0];
+            statusEl.textContent = `Connected (${browserName})`;
+          }
+        } else {
+          statusEl.className = 'status error';
+          statusEl.textContent = 'Not connected';
+        }
+      } catch (err) {
+        statusEl.className = 'status error';
+        statusEl.textContent = 'Error';
+      } finally {
+        testBtn.disabled = false;
+        testBtn.textContent = 'Test Connection';
       }
     }
 

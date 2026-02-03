@@ -11,6 +11,7 @@
 import { ElectronTier } from './electron-tier';
 import { CdpTier } from './cdp-tier';
 import { BrowserAction, BrowserResult, BrowserTier, BrowserToolInput } from './types';
+import { SettingsManager } from '../settings';
 
 export * from './types';
 
@@ -50,20 +51,32 @@ export class BrowserManager {
   private selectTier(action: BrowserAction): BrowserTier {
     // Explicit tier requested
     if (action.tier && (action.tier === 'electron' || action.tier === 'cdp')) {
+      console.log(`[Browser] Tier explicitly set to: ${action.tier}`);
       return action.tier;
     }
 
     // Auth required → CDP
     if (action.requiresAuth) {
+      console.log('[Browser] requires_auth=true, selecting CDP');
+      return 'cdp';
+    }
+
+    // "Use My Browser" setting enabled → prefer CDP
+    const useMyBrowserSetting = SettingsManager.get('browser.useMyBrowser');
+    console.log(`[Browser] useMyBrowser setting = "${useMyBrowserSetting}"`);
+    if (useMyBrowserSetting === 'true') {
+      console.log('[Browser] Use My Browser enabled, selecting CDP');
       return 'cdp';
     }
 
     // If we were already using CDP (for auth), stay there
     if (this.lastTier === 'cdp' && this.cdpTier?.isConnected()) {
+      console.log('[Browser] Already on CDP, staying there');
       return 'cdp';
     }
 
     // Default to Electron for JS rendering
+    console.log('[Browser] Defaulting to Electron');
     return 'electron';
   }
 
@@ -323,12 +336,19 @@ export async function handleBrowserTool(input: unknown): Promise<string> {
   if (result.data) response.data = result.data;
   if (result.html) response.html = result.html;
   if (result.screenshot) {
-    // Save screenshot to temp file instead of flooding response with base64
+    // Save screenshot to workspace folder
     const fs = await import('fs');
     const path = await import('path');
     const os = await import('os');
     const timestamp = Date.now();
-    const screenshotPath = path.join(os.tmpdir(), `pa-screenshot-${timestamp}.png`);
+    const screenshotsDir = path.join(os.homedir(), 'Documents', 'Pocket-agent', 'screenshots');
+
+    // Ensure screenshots directory exists
+    if (!fs.existsSync(screenshotsDir)) {
+      fs.mkdirSync(screenshotsDir, { recursive: true });
+    }
+
+    const screenshotPath = path.join(screenshotsDir, `screenshot-${timestamp}.png`);
     fs.writeFileSync(screenshotPath, Buffer.from(result.screenshot, 'base64'));
     response.screenshot = `saved to ${screenshotPath}`;
     response.screenshotSize = `${Math.round(result.screenshot.length / 1024)}KB`;

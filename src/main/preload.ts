@@ -122,6 +122,11 @@ contextBridge.exposeInMainWorld('pocketAgent', {
     return () => ipcRenderer.removeListener('updater:status', listener);
   },
 
+  // Browser control
+  detectInstalledBrowsers: () => ipcRenderer.invoke('browser:detectInstalled'),
+  launchBrowser: (browserId: string, port?: number) => ipcRenderer.invoke('browser:launch', browserId, port),
+  testBrowserConnection: (cdpUrl?: string) => ipcRenderer.invoke('browser:testConnection', cdpUrl),
+
   // Navigation
   onNavigateTab: (callback: (tab: string) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, tab: string) => callback(tab);
@@ -262,6 +267,10 @@ declare global {
       installUpdate: () => Promise<{ success: boolean; error?: string }>;
       getUpdateStatus: () => Promise<{ status: string; info?: { version: string }; progress?: { percent: number }; error?: string }>;
       onUpdateStatus: (callback: (status: { status: string; info?: { version: string }; progress?: { percent: number }; error?: string }) => void) => () => void;
+      // Browser control
+      detectInstalledBrowsers: () => Promise<Array<{ id: string; name: string; path: string; processName: string; installed: boolean }>>;
+      launchBrowser: (browserId: string, port?: number) => Promise<{ success: boolean; error?: string; alreadyRunning?: boolean }>;
+      testBrowserConnection: (cdpUrl?: string) => Promise<{ connected: boolean; error?: string; browserInfo?: unknown }>;
     };
   }
 }

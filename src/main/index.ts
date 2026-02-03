@@ -1422,6 +1422,22 @@ function setupIPC(): void {
     return ClaudeOAuth.isPending();
   });
 
+  // Browser control
+  ipcMain.handle('browser:detectInstalled', async () => {
+    const { detectInstalledBrowsers } = await import('../browser/launcher');
+    return detectInstalledBrowsers();
+  });
+
+  ipcMain.handle('browser:launch', async (_, browserId: string, port?: number) => {
+    const { launchBrowser } = await import('../browser/launcher');
+    return launchBrowser(browserId, port || 9222);
+  });
+
+  ipcMain.handle('browser:testConnection', async (_, cdpUrl?: string) => {
+    const { testCdpConnection } = await import('../browser/launcher');
+    return testCdpConnection(cdpUrl || 'http://localhost:9222');
+  });
+
   // File attachments
   ipcMain.handle('attachment:save', async (_, name: string, dataUrl: string) => {
     try {
