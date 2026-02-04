@@ -1,4 +1,4 @@
-import { app, Tray, Menu, nativeImage, BrowserWindow, ipcMain, Notification, globalShortcut, shell, dialog, screen } from 'electron';
+import { app, Tray, Menu, nativeImage, BrowserWindow, ipcMain, Notification, globalShortcut, shell, dialog, screen, powerMonitor, powerSaveBlocker } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { spawn, ChildProcess } from 'child_process';
@@ -1941,6 +1941,58 @@ app.whenReady().then(async () => {
   try {
     // Show splash screen immediately
     showSplashScreen();
+
+    // === Power Management ===
+    // Prevent App Nap from throttling our timers (scheduler, reminders)
+    // This keeps the app responsive even when display is off
+    let powerBlockerId: number | null = null;
+
+    const startPowerBlocker = () => {
+      if (powerBlockerId === null) {
+        // 'prevent-app-suspension' keeps timers running accurately
+        powerBlockerId = powerSaveBlocker.start('prevent-app-suspension');
+        console.log('[Power] App suspension blocker started');
+      }
+    };
+
+    const stopPowerBlocker = () => {
+      if (powerBlockerId !== null && powerSaveBlocker.isStarted(powerBlockerId)) {
+        powerSaveBlocker.stop(powerBlockerId);
+        powerBlockerId = null;
+        console.log('[Power] App suspension blocker stopped');
+      }
+    };
+
+    // Start blocker immediately
+    startPowerBlocker();
+
+    // Handle system suspend/resume (actual sleep)
+    powerMonitor.on('suspend', () => {
+      console.log('[Power] System suspending (sleep)');
+      // Timers will be paused, nothing we can do
+    });
+
+    powerMonitor.on('resume', () => {
+      console.log('[Power] System resumed from sleep');
+      // Restart power blocker in case it was affected
+      startPowerBlocker();
+      // Note: Scheduler and Telegram will auto-recover on next tick
+    });
+
+    // Handle lock screen (display off but CPU running)
+    powerMonitor.on('lock-screen', () => {
+      console.log('[Power] Screen locked');
+      // Keep blocker running - this is when App Nap would kick in
+    });
+
+    powerMonitor.on('unlock-screen', () => {
+      console.log('[Power] Screen unlocked');
+    });
+
+    // Clean up on app quit
+    app.on('will-quit', () => {
+      stopPowerBlocker();
+    });
 
     // Set Dock icon on macOS
     if (process.platform === 'darwin') {
