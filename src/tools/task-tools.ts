@@ -250,6 +250,7 @@ export async function handleTaskAddTool(input: unknown): Promise<string> {
       title: params.title,
       due: dueDate ? formatDateTime(dueDate) : null,
       priority,
+      reminder_minutes: params.reminder_minutes || null,
       session_id: sessionId,
     });
   } catch (error) {
@@ -315,6 +316,7 @@ export async function handleTaskListTool(input: unknown): Promise<string> {
         due: formatDateTime(t.due_date),
         priority: t.priority,
         status: t.status,
+        reminder_minutes: t.reminder_minutes,
       })),
     });
   } catch (error) {

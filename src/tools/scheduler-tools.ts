@@ -589,6 +589,36 @@ export function getListScheduledTasksToolDefinition() {
 }
 
 /**
+ * Format schedule for display based on schedule_type
+ */
+function formatScheduleDisplay(job: {
+  schedule_type?: string;
+  schedule: string | null;
+  run_at?: string | null;
+  interval_ms?: number | null;
+}): string {
+  const scheduleType = job.schedule_type || 'cron';
+
+  if (scheduleType === 'cron' && job.schedule) {
+    return `cron: ${job.schedule}`;
+  }
+  if (scheduleType === 'at' && job.run_at) {
+    const formatted = formatDateTime(job.run_at);
+    return `at: ${formatted || job.run_at}`;
+  }
+  if (scheduleType === 'every' && job.interval_ms) {
+    return `every ${formatDuration(job.interval_ms)}`;
+  }
+
+  // Fallback: try to show whatever is available
+  if (job.schedule) return job.schedule;
+  if (job.run_at) return `at: ${formatDateTime(job.run_at) || job.run_at}`;
+  if (job.interval_ms) return `every ${formatDuration(job.interval_ms)}`;
+
+  return 'unknown';
+}
+
+/**
  * List scheduled tasks handler
  */
 export async function handleListScheduledTasksTool(): Promise<string> {
@@ -614,7 +644,8 @@ export async function handleListScheduledTasksTool(): Promise<string> {
     tasks: jobs.map(job => ({
       name: job.name,
       type: job.job_type || 'routine',
-      schedule: job.schedule,
+      schedule: formatScheduleDisplay(job),
+      next_run: job.next_run_at ? formatDateTime(job.next_run_at) : null,
       prompt: job.prompt,
       channel: job.channel,
       enabled: job.enabled,

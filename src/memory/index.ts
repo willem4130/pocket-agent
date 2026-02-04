@@ -701,7 +701,7 @@ export class MemoryManager {
   }
 
   /**
-   * Delete a session and all its messages/summaries
+   * Delete a session and all its related data
    */
   deleteSession(id: string): boolean {
     // Don't allow deleting the default session
@@ -710,12 +710,32 @@ export class MemoryManager {
       return false;
     }
 
-    // Delete related data first (due to foreign key constraints)
+    // Delete all related data first (due to foreign key constraints)
+    // Order matters: delete child records before parent records
+
+    // Delete message embeddings for messages in this session
+    this.db.prepare(`
+      DELETE FROM message_embeddings
+      WHERE message_id IN (SELECT id FROM messages WHERE session_id = ?)
+    `).run(id);
+
+    // Delete messages and summaries
     this.db.prepare('DELETE FROM messages WHERE session_id = ?').run(id);
     this.db.prepare('DELETE FROM summaries WHERE session_id = ?').run(id);
+    this.db.prepare('DELETE FROM rolling_summaries WHERE session_id = ?').run(id);
+
+    // Delete session-scoped items (calendar, tasks, cron jobs)
+    this.db.prepare('DELETE FROM calendar_events WHERE session_id = ?').run(id);
+    this.db.prepare('DELETE FROM tasks WHERE session_id = ?').run(id);
+    this.db.prepare('DELETE FROM cron_jobs WHERE session_id = ?').run(id);
+
+    // Delete telegram chat session mapping
     this.db.prepare('DELETE FROM telegram_chat_sessions WHERE session_id = ?').run(id);
+
+    // Finally delete the session itself
     const result = this.db.prepare('DELETE FROM sessions WHERE id = ?').run(id);
 
+    console.log(`[Memory] Deleted session ${id}: ${result.changes > 0 ? 'success' : 'not found'}`);
     return result.changes > 0;
   }
 

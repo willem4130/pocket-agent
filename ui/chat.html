@@ -2592,7 +2592,16 @@
         pendingUserMessagesBySession.delete(sessionId);
 
         // Now delete the session (this also stops any running query)
-        await window.pocketAgent.deleteSession(sessionId);
+        const result = await window.pocketAgent.deleteSession(sessionId);
+
+        if (!result.success) {
+          console.error('Failed to delete session from database');
+          // Refresh sessions from DB to ensure UI is in sync
+          sessions = await window.pocketAgent.getSessions();
+          renderTabs();
+          return;
+        }
+
         sessions = sessions.filter(s => s.id !== sessionId);
 
         // If we deleted the current session, switch to another
@@ -2607,6 +2616,9 @@
         updateStats();
       } catch (err) {
         console.error('Failed to delete session:', err);
+        // Refresh sessions from DB to ensure UI is in sync
+        sessions = await window.pocketAgent.getSessions();
+        renderTabs();
       }
     }
 
