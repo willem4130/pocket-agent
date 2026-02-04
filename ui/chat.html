@@ -1546,24 +1546,48 @@
       }
     }
 
-    .empty-state .empty-emoji {
-      font-size: 56px;
-      animation: wave 2.5s ease-in-out infinite;
-      transform-origin: 70% 70%;
+    .empty-state .pixel-heart {
+      width: 4px;
+      height: 4px;
+      margin: 20px auto 30px;
+      position: relative;
+      left: -14px;
+      background: transparent;
+      animation: pixelheart-pulse 1.2s ease-in-out infinite;
+      image-rendering: pixelated;
+      box-shadow:
+        /* Row 1 */
+        4px 0 0 var(--accent), 8px 0 0 var(--accent),
+        20px 0 0 var(--accent-secondary), 24px 0 0 var(--accent-secondary),
+        /* Row 2 */
+        0 4px 0 var(--accent), 4px 4px 0 var(--accent), 8px 4px 0 var(--accent), 12px 4px 0 var(--accent),
+        16px 4px 0 var(--accent-secondary), 20px 4px 0 var(--accent-secondary), 24px 4px 0 var(--accent-secondary), 28px 4px 0 var(--accent-secondary),
+        /* Row 3 */
+        0 8px 0 var(--accent), 4px 8px 0 var(--accent), 8px 8px 0 var(--accent), 12px 8px 0 #c084fc,
+        16px 8px 0 #c084fc, 20px 8px 0 var(--accent-secondary), 24px 8px 0 var(--accent-secondary), 28px 8px 0 var(--accent-secondary),
+        /* Row 4 */
+        0 12px 0 var(--accent), 4px 12px 0 var(--accent), 8px 12px 0 #c084fc, 12px 12px 0 #c084fc,
+        16px 12px 0 #c084fc, 20px 12px 0 #c084fc, 24px 12px 0 var(--accent-secondary), 28px 12px 0 var(--accent-secondary),
+        /* Row 5 */
+        4px 16px 0 var(--accent), 8px 16px 0 #c084fc, 12px 16px 0 #c084fc,
+        16px 16px 0 #c084fc, 20px 16px 0 #c084fc, 24px 16px 0 var(--accent-secondary),
+        /* Row 6 */
+        8px 20px 0 #c084fc, 12px 20px 0 #c084fc, 16px 20px 0 #c084fc, 20px 20px 0 #c084fc,
+        /* Row 7 */
+        12px 24px 0 #c084fc, 16px 24px 0 #c084fc,
+        /* Row 8 - tip */
+        14px 28px 0 #c084fc;
     }
 
-    @keyframes wave {
-      0%, 100% { transform: rotate(0deg); }
-      10% { transform: rotate(14deg); }
-      20% { transform: rotate(-8deg); }
-      30% { transform: rotate(14deg); }
-      40% { transform: rotate(-4deg); }
-      50%, 100% { transform: rotate(0deg); }
+    @keyframes pixelheart-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.15); }
     }
 
     .empty-state .empty-title {
-      font-size: 20px;
-      font-weight: 600;
+      font-family: 'Pixelify Sans', sans-serif;
+      font-size: 24px;
+      font-weight: 700;
       background: linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 100%);
       -webkit-background-clip: text;
       background-clip: text;
@@ -3697,9 +3721,9 @@
     function showEmptyState() {
       messagesDiv.innerHTML = `
         <div class="empty-state">
-          <div class="empty-emoji">👋</div>
-          <div class="empty-title">hey! what's up?</div>
-          <div class="empty-subtitle">i remember everything, so just pick up where we left off ✨</div>
+          <div class="pixel-heart"></div>
+          <div class="empty-title">Franky here!</div>
+          <div class="empty-subtitle">ready to go whenever you are, i've got your back ✨</div>
         </div>
       `;
     }
