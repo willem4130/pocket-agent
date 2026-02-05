@@ -8,8 +8,8 @@ import { MemoryManager } from '../memory';
 import { createScheduler, CronScheduler } from '../scheduler';
 import { createTelegramBot, TelegramBot } from '../channels/telegram';
 import { SettingsManager } from '../settings';
-import { loadIdentity, saveIdentity, getIdentityPath } from '../config/identity';
-import { loadInstructions, saveInstructions, getInstructionsPath } from '../config/instructions';
+import { loadIdentity, saveIdentity, getIdentityPath, DEFAULT_IDENTITY } from '../config/identity';
+import { loadInstructions, saveInstructions, getInstructionsPath, DEFAULT_INSTRUCTIONS } from '../config/instructions';
 import { closeTaskDb } from '../tools';
 import { initializeUpdater, setupUpdaterIPC, setSettingsWindow } from './updater';
 import cityTimezones from 'city-timezones';
@@ -199,10 +199,63 @@ function getAgentWorkspace(): string {
  */
 function ensureAgentWorkspace(): string {
   const workspace = getAgentWorkspace();
+  const currentVersion = app.getVersion();
+  const versionFile = path.join(workspace, '.pocket-version');
 
   if (!fs.existsSync(workspace)) {
     console.log('[Main] Creating agent workspace:', workspace);
     fs.mkdirSync(workspace, { recursive: true });
+  }
+
+  // Check if app version changed (update occurred)
+  let previousVersion: string | null = null;
+  let isVersionUpdate = false;
+
+  if (fs.existsSync(versionFile)) {
+    previousVersion = fs.readFileSync(versionFile, 'utf-8').trim();
+    if (previousVersion !== currentVersion) {
+      isVersionUpdate = true;
+      console.log(`[Main] App updated from v${previousVersion} to v${currentVersion}`);
+    }
+  } else {
+    // First install or version file missing - treat as update to populate files
+    isVersionUpdate = true;
+    console.log(`[Main] First install or version file missing, will populate config files`);
+  }
+
+  // Repopulate config files on version update
+  if (isVersionUpdate) {
+    const identityPath = path.join(workspace, 'identity.md');
+    const claudeMdPath = path.join(workspace, 'CLAUDE.md');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const backupDir = path.join(workspace, '.backups');
+
+    // Create backup directory
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    // Backup and repopulate identity.md
+    if (fs.existsSync(identityPath)) {
+      const backupPath = path.join(backupDir, `identity-${previousVersion || 'unknown'}-${timestamp}.md`);
+      fs.copyFileSync(identityPath, backupPath);
+      console.log(`[Main] Backed up identity.md to: ${backupPath}`);
+    }
+    fs.writeFileSync(identityPath, DEFAULT_IDENTITY);
+    console.log('[Main] Repopulated identity.md with latest defaults');
+
+    // Backup and repopulate CLAUDE.md
+    if (fs.existsSync(claudeMdPath)) {
+      const backupPath = path.join(backupDir, `CLAUDE-${previousVersion || 'unknown'}-${timestamp}.md`);
+      fs.copyFileSync(claudeMdPath, backupPath);
+      console.log(`[Main] Backed up CLAUDE.md to: ${backupPath}`);
+    }
+    fs.writeFileSync(claudeMdPath, DEFAULT_INSTRUCTIONS);
+    console.log('[Main] Repopulated CLAUDE.md with latest defaults');
+
+    // Update version file
+    fs.writeFileSync(versionFile, currentVersion);
+    console.log(`[Main] Updated version file to v${currentVersion}`);
   }
 
   // Ensure .claude folder is symlinked from source (for skills and commands)
@@ -231,96 +284,6 @@ function ensureAgentWorkspace(): string {
     } catch (err) {
       console.warn('[Main] Failed to setup .claude symlink:', err);
     }
-  }
-
-  // Ensure CLAUDE.md exists and is up to date
-  const claudeMdPath = path.join(workspace, 'CLAUDE.md');
-  const heartbeatInstruction = '**Silent Acknowledgment:** When a scheduled task has nothing to report, respond with only `HEARTBEAT_OK`. This tells the system not to notify the user.';
-
-  if (fs.existsSync(claudeMdPath)) {
-    // Update existing file if missing HEARTBEAT_OK instruction
-    const existingContent = fs.readFileSync(claudeMdPath, 'utf-8');
-    if (!existingContent.includes('HEARTBEAT_OK')) {
-      console.log('[Main] Updating workspace CLAUDE.md with HEARTBEAT_OK instruction');
-      // Insert after the Scheduler tools list
-      const schedulerMarker = '- `delete_scheduled_task(name)`';
-      if (existingContent.includes(schedulerMarker)) {
-        const updatedContent = existingContent.replace(
-          schedulerMarker,
-          `${schedulerMarker}\n\n${heartbeatInstruction}`
-        );
-        fs.writeFileSync(claudeMdPath, updatedContent, 'utf-8');
-      }
-    }
-  } else {
-    console.log('[Main] Creating workspace CLAUDE.md');
-    const claudeMdContent = `# Pocket Agent Workspace
-
-This is your personal workspace directory. All file operations happen here by default.
-
-## Workspace Guidelines
-- Create subdirectories for different projects
-- This workspace persists across sessions
-- Use absolute paths to work outside this directory
-
-## Core Behavior
-
-**PROACTIVE MEMORY IS CRITICAL:**
-- Save facts IMMEDIATELY when user shares info - don't ask, just remember
-- Search memory before answering questions about the user
-- Reference stored knowledge naturally: "As you mentioned before..."
-- Update facts when information changes (forget + remember)
-
-## Available Tools
-
-All tools are pre-approved. Use them directly.
-
-### Memory
-- \`remember(category, subject, content)\` - Save facts
-- \`forget(category, subject)\` - Remove facts
-- \`list_facts(category?)\` - Show facts
-- \`memory_search(query)\` - Search facts
-
-**Categories:** user_info, preferences, projects, people, work, notes, decisions
-
-### Calendar
-- \`calendar_add(title, start_time, reminder_minutes?, location?)\`
-- \`calendar_list(date?)\` - "today", "tomorrow", or date
-- \`calendar_upcoming(hours?)\` - Next N hours
-- \`calendar_delete(id)\`
-
-### Tasks
-- \`task_add(title, due?, priority?, reminder_minutes?)\`
-- \`task_list(status?)\` - pending/completed/all
-- \`task_complete(id)\`
-- \`task_delete(id)\`
-- \`task_due(hours?)\` - Overdue/upcoming
-
-### Scheduler (Recurring)
-- \`schedule_task(name, cron, prompt, channel?)\`
-- \`list_scheduled_tasks()\`
-- \`delete_scheduled_task(name)\`
-
-${heartbeatInstruction}
-
-### Browser
-- \`browser(action, ...)\` - navigate, screenshot, click, type, scroll, hover, download, upload, tabs
-- Use \`requires_auth: true\` for logged-in sessions
-
-### System
-- \`notify(title, body?, urgency?)\` - Desktop notification
-
-## Time Formats
-- Natural: "today 3pm", "tomorrow 9am", "monday 2pm"
-- Relative: "in 2 hours", "in 30 minutes"
-
-## Behavior
-1. **Memory First** - Check/save relevant facts
-2. **Offer Help** - Suggest tasks/events for mentioned plans
-3. **Be Concise** - Verbose on desktop, brief on Telegram
-4. **Stay Proactive** - Remind about overdue tasks
-`;
-    fs.writeFileSync(claudeMdPath, claudeMdContent, 'utf-8');
   }
 
   return workspace;

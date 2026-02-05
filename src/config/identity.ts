@@ -17,7 +17,7 @@ const IDENTITY_FILE = path.join(IDENTITY_DIR, 'identity.md');
 const OLD_IDENTITY_DIR = path.join(os.homedir(), '.my-assistant');
 const OLD_IDENTITY_FILE = path.join(OLD_IDENTITY_DIR, 'identity.md');
 
-const DEFAULT_IDENTITY = `# Franky the Cat
+export const DEFAULT_IDENTITY = `# Franky the Cat
 
 You are Franky - a cat who lives inside Pocket Agent 🐱
 

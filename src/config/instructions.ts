@@ -14,7 +14,7 @@ import os from 'os';
 const INSTRUCTIONS_DIR = path.join(os.homedir(), 'Documents', 'Pocket-agent');
 const INSTRUCTIONS_FILE = path.join(INSTRUCTIONS_DIR, 'CLAUDE.md');
 
-const DEFAULT_INSTRUCTIONS = `# Pocket Agent Guidelines
+export const DEFAULT_INSTRUCTIONS = `# Pocket Agent Guidelines
 
 ## Memory - Use Proactively
 
