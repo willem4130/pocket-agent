@@ -136,7 +136,7 @@ vi.mock('../../src/agent', () => ({
       linkTelegramChat: vi.fn(),
       unlinkTelegramChat: vi.fn(),
     }),
-    getModel: () => 'claude-opus-4-5-20251101',
+    getModel: () => 'claude-opus-4-6',
     setModel: vi.fn(),
   },
 }));

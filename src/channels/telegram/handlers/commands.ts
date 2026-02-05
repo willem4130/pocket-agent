@@ -166,7 +166,7 @@ Your AI assistant with persistent memory. I remember our conversations and learn
 
     if (hasOAuth || hasAnthropicKey) {
       availableModels.push(
-        { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5', provider: 'Anthropic' },
+        { id: 'claude-opus-4-6', name: 'Opus 4.6', provider: 'Anthropic' },
         { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5', provider: 'Anthropic' },
         { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5', provider: 'Anthropic' }
       );

@@ -257,7 +257,7 @@ class AgentManagerClass extends EventEmitter {
     this.memory = config.memory;
     this.projectRoot = config.projectRoot || process.cwd();
     this.workspace = config.workspace || this.projectRoot;
-    this.model = config.model || 'claude-opus-4-5-20251101';
+    this.model = config.model || 'claude-opus-4-6';
     this.toolsConfig = config.tools || null;
     this.initialized = true;
 

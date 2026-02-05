@@ -1345,7 +1345,7 @@ function setupIPC(): void {
 
     if (hasOAuth || hasAnthropicKey) {
       models.push(
-        { id: 'claude-opus-4-5-20251101', name: 'Opus 4.5', provider: 'anthropic' },
+        { id: 'claude-opus-4-6', name: 'Opus 4.6', provider: 'anthropic' },
         { id: 'claude-sonnet-4-5-20250929', name: 'Sonnet 4.5', provider: 'anthropic' },
         { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5', provider: 'anthropic' }
       );
