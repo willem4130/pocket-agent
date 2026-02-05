@@ -137,6 +137,9 @@ contextBridge.exposeInMainWorld('pocketAgent', {
   launchBrowser: (browserId: string, port?: number) => ipcRenderer.invoke('browser:launch', browserId, port),
   testBrowserConnection: (cdpUrl?: string) => ipcRenderer.invoke('browser:testConnection', cdpUrl),
 
+  // Shell commands
+  runCommand: (command: string) => ipcRenderer.invoke('shell:runCommand', command),
+
   // Navigation
   onNavigateTab: (callback: (tab: string) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, tab: string) => callback(tab);
@@ -283,6 +286,8 @@ declare global {
       detectInstalledBrowsers: () => Promise<Array<{ id: string; name: string; path: string; processName: string; installed: boolean }>>;
       launchBrowser: (browserId: string, port?: number) => Promise<{ success: boolean; error?: string; alreadyRunning?: boolean }>;
       testBrowserConnection: (cdpUrl?: string) => Promise<{ connected: boolean; error?: string; browserInfo?: unknown }>;
+      // Shell commands
+      runCommand: (command: string) => Promise<string>;
     };
   }
 }

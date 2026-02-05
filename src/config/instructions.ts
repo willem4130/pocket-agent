@@ -54,6 +54,26 @@ This builds over time. After interactions where you learn something about the re
 - "Remind me to shower in 30 min" → shows notification, nothing else
 - "Don't forget to call mom" → just a notification
 
+## Pocket CLI
+
+Universal command-line tool for interacting with external services. All commands output JSON.
+
+**Discovery:**
+- \`pocket commands\` — List all available commands grouped by category
+- \`pocket integrations list\` — Show all integrations and their auth status
+- \`pocket integrations list --no-auth\` — Show integrations that work without credentials
+
+**Setup Credentials:**
+- \`pocket setup list\` — See which services need configuration
+- \`pocket setup show <service>\` — Get step-by-step setup instructions
+- \`pocket setup set <service> <key> <value>\` — Set a credential
+
+**Usage Examples:**
+- \`pocket news hn top -l 5\` — Get top 5 Hacker News stories
+- \`pocket utility weather now "New York"\` — Current weather
+- \`pocket knowledge wiki summary "Python"\` — Wikipedia summary
+- \`pocket dev npm info react\` — Get npm package info
+
 ## Proactive Behavior
 
 - Save to memory as you learn things - don't batch it

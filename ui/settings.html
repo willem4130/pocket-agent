@@ -980,6 +980,10 @@
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
         Superpowers
       </div>
+      <div class="nav-item" data-section="pocket_cli">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8l4 4-4 4"/><line x1="13" y1="16" x2="17" y2="16"/></svg>
+        Pocket CLI
+      </div>
       <div class="nav-item" data-section="updates">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
         Updates
@@ -1341,6 +1345,27 @@
         </div>
       </section>
 
+      <!-- Pocket CLI Section -->
+      <section id="pocket_cli" class="section">
+        <h2 class="section-title">Pocket CLI</h2>
+        <p class="section-desc">Pocket CLI gives your AI assistant the power to actually do things on the internet — check your emails, browse social media, get news, look up information, and more.</p>
+
+        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6;">
+          Think of it as hands for your AI. Instead of just chatting, your AI can now reach out and interact with real services like Twitter, YouTube, Hacker News, Wikipedia, and dozens more.
+        </p>
+
+        <div class="settings-grid">
+          <div class="setting-row">
+            <label>Status</label>
+            <div id="pocket-cli-status" class="status info" style="margin: 0;">checking...</div>
+          </div>
+          <div class="setting-row">
+            <label>Install</label>
+            <button id="pocket-cli-install-btn" onclick="playNormalClick(); installPocketCli()" class="skills-setup-btn" style="margin: 0;">Install Pocket CLI</button>
+          </div>
+        </div>
+      </section>
+
       <!-- Updates Section -->
       <section id="updates" class="section">
         <h2 class="section-title">Updates</h2>
@@ -1430,6 +1455,7 @@
       setupAutoSave();
       loadSkillsSummary();
       initializeBrowserSection();
+      checkPocketCliStatus();
     });
 
     async function loadAppVersion() {
@@ -2261,6 +2287,62 @@
         await window.pocketAgent.openSkillsSetup();
       } catch (err) {
         showToast('Failed to open Skills Setup: ' + err.message, 'error');
+      }
+    }
+
+    // Pocket CLI functions
+    async function checkPocketCliStatus() {
+      const statusEl = document.getElementById('pocket-cli-status');
+      const installBtn = document.getElementById('pocket-cli-install-btn');
+
+      try {
+        // Check if pocket command exists
+        const result = await window.pocketAgent.runCommand('which pocket');
+        if (result && result.trim()) {
+          statusEl.className = 'status success';
+          statusEl.textContent = 'Installed';
+          installBtn.textContent = 'Reinstall';
+        } else {
+          statusEl.className = 'status warning';
+          statusEl.textContent = 'Not installed';
+          installBtn.textContent = 'Install Pocket CLI';
+        }
+      } catch (err) {
+        statusEl.className = 'status warning';
+        statusEl.textContent = 'Not installed';
+        installBtn.textContent = 'Install Pocket CLI';
+      }
+    }
+
+    async function installPocketCli() {
+      const statusEl = document.getElementById('pocket-cli-status');
+      const installBtn = document.getElementById('pocket-cli-install-btn');
+
+      try {
+        installBtn.disabled = true;
+        installBtn.textContent = 'Installing...';
+        statusEl.className = 'status info';
+        statusEl.textContent = 'Installing...';
+
+        // Run the install script
+        const result = await window.pocketAgent.runCommand('curl -fsSL https://raw.githubusercontent.com/KenKaiii/pocket-agent-cli/main/scripts/install.sh | bash');
+
+        // Check if installation succeeded
+        await checkPocketCliStatus();
+
+        const newStatus = document.getElementById('pocket-cli-status');
+        if (newStatus.classList.contains('success')) {
+          showToast('Pocket CLI installed successfully!', 'success');
+        } else {
+          showToast('Installation completed, please check status', 'warning');
+        }
+      } catch (err) {
+        statusEl.className = 'status error';
+        statusEl.textContent = 'Install failed';
+        showToast('Failed to install Pocket CLI: ' + err.message, 'error');
+      } finally {
+        installBtn.disabled = false;
+        await checkPocketCliStatus();
       }
     }
 

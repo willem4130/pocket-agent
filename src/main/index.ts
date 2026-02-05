@@ -1,7 +1,8 @@
 import { app, Tray, Menu, nativeImage, BrowserWindow, ipcMain, Notification, globalShortcut, shell, dialog, screen, powerMonitor, powerSaveBlocker } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, exec, ChildProcess } from 'child_process';
+import { promisify } from 'util';
 import { AgentManager } from '../agent';
 import { MemoryManager } from '../memory';
 import { createScheduler, CronScheduler } from '../scheduler';
@@ -1459,6 +1460,22 @@ function setupIPC(): void {
   ipcMain.handle('browser:testConnection', async (_, cdpUrl?: string) => {
     const { testCdpConnection } = await import('../browser/launcher');
     return testCdpConnection(cdpUrl || 'http://localhost:9222');
+  });
+
+  // Shell commands
+  ipcMain.handle('shell:runCommand', async (_, command: string) => {
+    const execAsync = promisify(exec);
+    try {
+      const { stdout } = await execAsync(command, {
+        shell: '/bin/bash',
+        env: { ...process.env, PATH: `${process.env.PATH}:/usr/local/bin:/opt/homebrew/bin` },
+      });
+      return stdout;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[Shell] Command failed:', errorMsg);
+      throw error;
+    }
   });
 
   // File attachments
