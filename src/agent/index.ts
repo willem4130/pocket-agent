@@ -175,7 +175,7 @@ export interface ImageContent {
 // Attachment info for tracking attachments in metadata
 export interface AttachmentInfo {
   hasAttachment: boolean;
-  attachmentType?: 'photo' | 'voice' | 'audio';
+  attachmentType?: 'photo' | 'voice' | 'audio' | 'document' | 'location';
 }
 
 // Content block types for SDK
